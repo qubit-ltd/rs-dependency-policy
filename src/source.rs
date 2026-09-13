@@ -75,6 +75,7 @@ fn load_git_source(
     reference: &ProjectConfig,
     cache: &Utf8Path,
 ) -> Result<Utf8PathBuf, PolicyError> {
+    let cache = absolute_path(cache)?;
     let source = reference
         .source
         .strip_prefix("git+")
@@ -86,7 +87,7 @@ fn load_git_source(
         std::fs::create_dir_all(cache.as_std_path()).map_err(|error| PolicyError::Source {
             message: format!("failed to create Git source cache {cache}: {error}"),
         })?;
-        run_git_in(cache, &["clone", "--no-checkout", source, root.as_str()])?;
+        run_git_in(&cache, &["clone", "--no-checkout", source, root.as_str()])?;
     }
     run_git(
         &root,
@@ -102,6 +103,20 @@ fn load_git_source(
         });
     }
     Ok(root)
+}
+
+/// Returns an absolute UTF-8 path without requiring the path to exist.
+fn absolute_path(path: &Utf8Path) -> Result<Utf8PathBuf, PolicyError> {
+    if path.is_absolute() {
+        return Ok(path.to_owned());
+    }
+    let current = std::env::current_dir().map_err(|error| PolicyError::Source {
+        message: format!("failed to determine the current directory: {error}"),
+    })?;
+    let current = Utf8PathBuf::from_path_buf(current).map_err(|_| PolicyError::Source {
+        message: "the current directory is not valid UTF-8".into(),
+    })?;
+    Ok(current.join(path))
 }
 
 /// Creates a stable cache directory name for a source URL.

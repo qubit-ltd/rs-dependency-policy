@@ -106,6 +106,24 @@ fn test_load_baseline_checks_out_the_requested_git_revision() {
 }
 
 #[test]
+fn test_load_baseline_uses_a_relative_project_cache_for_git_sources() {
+    let (_temporary, remote, revision) = create_remote();
+    let reference = ProjectConfig {
+        format: 2,
+        source: format!("git+file://{remote}"),
+        revision,
+        baseline: "v2026.09.0".into(),
+        internal_prefixes: Vec::new(),
+    };
+    let cache = Utf8Path::new("target/source-test-relative-cache");
+    let _ = std::fs::remove_dir_all(cache.as_std_path());
+    let result = load_baseline(&reference, cache);
+    let _ = std::fs::remove_dir_all(cache.as_std_path());
+
+    result.expect("relative cache path should load a pinned Git baseline");
+}
+
+#[test]
 fn test_load_baseline_keeps_file_sources_compatible() {
     let source_root = Utf8Path::new("tests/fixtures/policy-repo")
         .canonicalize_utf8()
