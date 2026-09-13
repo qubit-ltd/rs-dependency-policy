@@ -27,7 +27,10 @@ runs:
     - name: Check dependency policy
       shell: bash
       env:
-        GH_TOKEN: ${{ inputs.token }}
-        GITHUB_TOKEN: ${{ inputs.token }}
+        POLICY_GIT_TOKEN: ${{ inputs.token }}
         CARGO_NET_GIT_FETCH_WITH_CLI: true
-      run: cargo dependency-policy --project "${{ inputs.project }}" check
+      run: |
+        if [[ -n "$POLICY_GIT_TOKEN" ]]; then
+          git config --global url."https://x-access-token:${POLICY_GIT_TOKEN}@github.com/".insteadOf "https://github.com/"
+        fi
+        cargo dependency-policy --project "${{ inputs.project }}" check
