@@ -1,0 +1,24 @@
+[package]
+name = "qubit-dependency-policy"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94"
+license = "Apache-2.0"
+description = "Cross-project Rust dependency policy validation and synchronization."
+repository = "https://github.com/qubit-ltd/rs-dependency-policy"
+readme = "README.md"
+
+[dependencies]
+camino = { version = "1.1", features = ["serde1"] }
+cargo_metadata = "0.23"
+clap = { version = "4.5", features = ["derive"] }
+semver = { version = "1.0", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+toml = "0.8"
+toml_edit = "0.22"
+url = "2.5"
+
+[dev-dependencies]
+tempfile = "3.15"

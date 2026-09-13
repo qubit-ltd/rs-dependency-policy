@@ -1,0 +1,24 @@
+use camino::Utf8Path;
+use qubit_dependency_policy::{Profile, ProjectConfig};
+
+#[test]
+fn rejects_policy_without_a_40_digit_revision() {
+    let project = Utf8Path::new("tests/fixtures/config-invalid-revision");
+    let error = ProjectConfig::load(project, None).expect_err("invalid revision must fail");
+    assert_eq!(error.code(), "DP001");
+}
+
+#[test]
+fn loads_the_default_project_configuration() {
+    let project = Utf8Path::new("tests/fixtures/config-valid");
+    let config = ProjectConfig::load(project, None).expect("valid project configuration");
+    assert_eq!(config.format, 1);
+    assert_eq!(config.profile(), Profile::Library);
+}
+
+#[test]
+fn reports_missing_configuration_file() {
+    let error = ProjectConfig::load(Utf8Path::new("tests/fixtures/missing"), None)
+        .expect_err("missing configuration must fail");
+    assert_eq!(error.code(), "DP001");
+}

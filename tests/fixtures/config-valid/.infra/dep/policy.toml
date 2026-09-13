@@ -1,0 +1,10 @@
+format = 1
+
+[baseline]
+source = "file:///tmp/policy"
+revision = "0123456789abcdef0123456789abcdef01234567"
+release = "v2026.09.0"
+name = "test"
+
+[project]
+profile = "library"
