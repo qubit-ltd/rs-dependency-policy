@@ -1,52 +1,167 @@
 # rs-dependency-policy
 
 [![Rust CI](https://github.com/qubit-ltd/rs-dependency-policy/actions/workflows/ci.yml/badge.svg)](https://github.com/qubit-ltd/rs-dependency-policy/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://qubit-ltd.github.io/rs-dependency-policy/coverage-badge.json)](https://qubit-ltd.github.io/rs-dependency-policy/coverage/)
 [![Crates.io](https://img.shields.io/crates/v/qubit-dependency-policy.svg?color=blue)](https://crates.io/crates/qubit-dependency-policy)
 [![Rust](https://img.shields.io/badge/rust-1.94+-blue.svg?logo=rust)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
-Cross-project Rust dependency policy validation and safe synchronization. Projects select an immutable policy release in .infra/dep/policy.toml; the CLI checks manifests and resolved dependency graphs without requiring a Git submodule.
+`rs-dependency-policy` establishes and applies a shared third-party dependency
+baseline across Rust libraries, private crates, and applications. It shows
+which version requirement every project uses for an external crate and where
+repositories disagree.
 
-## Intended users
-
-This tool is for maintainers of published libraries, private crates, and standalone applications that need reproducible dependency rules across repositories.
+The tool is organization-neutral: callers identify their internal crates with
+parameters; no organization-specific crate name is hard-coded.
 
 ## Installation
 
-~~~bash
-cargo install qubit-dependency-policy
-~~~
+Install from a checkout while the crate is being developed:
 
-## Starting point
+```bash
+git clone https://github.com/qubit-ltd/rs-dependency-policy.git
+cd rs-dependency-policy
+cargo install --path .
+```
 
-~~~bash
-cargo dependency-policy check --project .
-~~~
+You can also run the commands below from a checkout with `cargo run --`. The
+bundled scripts require Bash, Cargo, and `jq` for interactive selection.
 
-The current release provides configuration loading, local policy-source loading, Cargo metadata evaluation, JSON/Markdown reports, and conservative direct-version synchronization. Git source fetching, repository-wide migration automation, and rs-ci integration are planned separately.
+## Quick start: create a baseline
 
-## Inventory before establishing a baseline
+For several repository directories, generate a candidate third-party baseline:
 
-Create an auditable inventory from all project roots before approving a shared baseline:
+```bash
+./scripts/create-baseline.sh \
+  --root /work/rust-common \
+  --root /work/rust-platform \
+  --internal-prefix acme- \
+  --internal-prefix acme_rs- \
+  --release v2026.09.13
+```
 
-~~~bash
-cargo dependency-policy inventory \
-  --root ../rust-common/rs-value \
-  --root ../rust-platform/rs-reflect \
-  --format json --output dependency-inventory.json
-~~~
+Each `--root` may be a Rust project containing `Cargo.toml`, or a parent whose
+immediate children are Rust projects. The script inventories direct declarations
+and Cargo's resolved graph. When an external dependency conflicts, it asks for
+a version decision:
 
-The inventory records direct declarations, Cargo's resolved graph, and conflicts where projects declare different requirements. Conflicts require an explicit version decision and review before being added to the shared baseline; the tool does not silently turn an unreviewed scan into policy.
+```text
+Dependency criterion has multiple declared requirements:
+  1) ^0.8
+  2) ^0.5
+Choose [1-2] (default 1, q to quit):
+```
+
+The candidate is written to `policy/baselines/<release>.toml`. Review it before
+committing. The script never edits scanned projects. It skips projects whose
+manifest cannot be resolved and reports every skipped path for separate repair.
+
+`path` and `workspace` dependencies are always internal. Registry or Git
+dependencies are third party unless their name matches a supplied
+`--internal-prefix`. Omit that option when there is no internal namespace.
+
+## Inventory without decisions
+
+Create a JSON review artifact without selecting versions:
+
+```bash
+./scripts/bootstrap-baseline.sh \
+  --root /work/rust-common \
+  --root /work/rust-platform \
+  --output /tmp/dependency-inventory.json
+```
+
+The equivalent CLI accepts explicit project roots:
+
+```bash
+cargo run -- inventory \
+  --root /work/rust-common/rs-example \
+  --root /work/rust-platform/rs-service \
+  --format markdown
+```
+
+Inventory records direct, build, and development declarations, optionality,
+workspace package names, resolved package versions, and direct requirement
+conflicts. It is evidence for review, not an automatically approved policy.
+
+## Adopt a reviewed baseline
+
+After committing a reviewed release, add `.infra/dep/policy.toml` to each
+governed project. This release supports local `file://` policy sources:
+
+```toml
+format = 1
+
+[baseline]
+name = "organization-third-party"
+source = "file:///absolute/path/to/rs-dependency-policy"
+revision = "0123456789abcdef0123456789abcdef01234567"
+release = "v2026.09.13"
+
+[project]
+profile = "library" # use "application" for a locked application
+```
+
+Use the full commit SHA of the reviewed release as `revision`. Remote Git
+sources and local revision verification are not implemented yet, so local
+`file://` sources are the supported execution path.
+
+## Check, report, and synchronize
+
+Check one project:
+
+```bash
+cargo run -- --project /work/rs-example check
+```
+
+Render a report:
+
+```bash
+cargo run -- --project /work/rs-example report --format markdown
+cargo run -- --project /work/rs-example report --format json
+```
+
+Create a safe version-edit plan before applying it:
+
+```bash
+cargo run -- --project /work/rs-example sync --dry-run
+cargo run -- --project /work/rs-example sync
+```
+
+Synchronization currently changes only plain string declarations in a root
+`[dependencies]` table, such as `serde = "1.0"`. Inline tables, renamed or
+target-specific dependencies, workspaces, and lockfile updates need manual
+review and are not changed automatically.
+
+## Current capabilities and limits
+
+- Multi-project inventory in JSON or Markdown.
+- Interactive candidate-baseline generation from external dependency conflicts.
+- Library and application profiles in versioned baseline files.
+- Direct requirement checks, forbidden resolved-version checks, and optional
+  single-version resolved-graph checks.
+- Conservative synchronization with dry-run.
+
+This release does not yet fetch baselines from Git, verify a local source
+against its recorded revision, enforce unlisted dependencies, apply exception
+files, or perform broad automatic Cargo manifest and lockfile migrations.
 
 ## Testing
 
-~~~bash
+```bash
+# Run tests with the default feature set
 cargo test
+
+# Run tests with all declared features
 cargo test --all-features
+
+# Project CI checks
 ./ci-check.sh
+
+# Check code coverage
 ./coverage.sh
-~~~
+```
 
 ## License
 
@@ -58,12 +173,8 @@ full license text.
 ## Contributing
 
 Contributions are welcome. Please follow the Rust API guidelines, keep public
-API documentation and tests current, and run ./align-ci.sh to format code and
-./ci-check.sh to satisfy CI requirements before submitting a pull request.
-
-Internal crate namespaces are supplied by the caller rather than hard-coded. A
-Qubit invocation may add `--internal-prefix qubit- --internal-prefix rs-`;
-other organizations should use their own prefixes or omit the option.
+API documentation and tests current, and run `./align-ci.sh` to format code and
+`./ci-check.sh` to satisfy CI requirements before submitting a pull request.
 
 ## Author
 
