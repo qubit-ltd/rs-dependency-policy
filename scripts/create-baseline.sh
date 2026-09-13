@@ -77,9 +77,9 @@ mkdir -p "$(dirname -- "$output")"
         if ((${#choices[@]} > 1)); then
             printf '\n依赖 %s 存在多个声明版本：\n' "$name" >&2
             for i in "${!choices[@]}"; do printf '  %d) %s\n' "$((i + 1))" "${choices[$i]}" >&2; done
-            [[ -t 0 ]] || { printf '当前不是交互终端，请在终端运行后选择版本。\n' >&2; exit 2; }
+            [[ -r /dev/tty ]] || { printf '无法访问交互终端，请在终端运行后选择版本。\n' >&2; exit 2; }
             while true; do
-                if ! read -r -p "选择 [1-${#choices[@]}]（默认 1，输入 q 放弃）：" answer; then
+                if ! read -r -p "选择 [1-${#choices[@]}]（默认 1，输入 q 放弃）：" answer </dev/tty; then
                     printf '\n未检测到交互输入；请在终端运行并选择版本，未生成正式 baseline。\n' >&2
                     exit 2
                 fi
