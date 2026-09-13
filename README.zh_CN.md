@@ -25,7 +25,7 @@ cargo install --path .
 
 ## 快速开始：创建 baseline
 
-如果需要为多个仓库目录建立一条第三方依赖基线，在本仓库运行交互式脚本：
+如果需要为多个仓库目录建立一条可直接接入的第三方依赖基线，在本仓库运行交互式脚本：
 
 ```bash
 ./scripts/create-baseline.sh \
@@ -45,18 +45,7 @@ cargo install --path .
 选择 [1-2]（默认 1，输入 q 放弃）：
 ```
 
-候选 baseline 默认写入 `policy/baselines/<release>.toml`。请先审核后再提交。脚本不会修改被扫描的业务仓库；manifest 无法解析的项目会被跳过并显示路径，需另行修复。
-
-如果希望先进行非交互的自动处理，可增加 `--auto`：
-
-```bash
-./scripts/create-baseline.sh \
-  --root /work/rust-common \
-  --internal-prefix acme- \
-  --auto
-```
-
-自动模式会为每个冲突选择当前声明次数最多的版本约束；票数相同时选择字典序较低的约束。它会在 baseline 相邻位置生成 `*.decisions.md` 审计报告，记录冲突、观测到的版本约束、选择结果和决策规则。自动模式仍然只生成候选 baseline，不会修改任何受治理项目。
+生成的 baseline 默认写入 `policy/baselines/<release>.toml`。你的交互选择会同时写入 `library` 和 `application` 的直接依赖规则，因此文件生成后即可提交并接入。脚本不会修改被扫描的业务仓库；manifest 无法解析的项目会被跳过并显示路径，需另行修复。
 
 `path` 和 `workspace` 依赖始终视为内部依赖。registry 或 Git 依赖默认视为第三方依赖；若某些已发布 crate 仍属于内部生态，可重复传入 `--internal-prefix` 将其排除。没有命名空间时不传该参数即可。
 
@@ -128,7 +117,7 @@ cargo run -- --project /work/rs-example sync
 ## 当前能力与边界
 
 - 多项目 JSON/Markdown inventory；
-- 根据外部依赖冲突交互生成候选 baseline；
+- 根据外部依赖冲突交互生成 baseline；
 - versioned baseline 中的 library/application profile；
 - 直接版本约束、禁止 resolved 版本、可选单版本 resolved 图检查；
 - 带 dry-run 的保守同步。

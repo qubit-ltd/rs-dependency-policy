@@ -30,7 +30,7 @@ bundled scripts require Bash, Cargo, and `jq` for interactive selection.
 
 ## Quick start: create a baseline
 
-For several repository directories, generate a candidate third-party baseline:
+For several repository directories, generate a ready-to-adopt third-party baseline:
 
 ```bash
 ./scripts/create-baseline.sh \
@@ -53,24 +53,11 @@ Dependency criterion has multiple declared requirements:
 Choose [1-2] (default 1, q to quit):
 ```
 
-The candidate is written to `policy/baselines/<release>.toml`. Review it before
-committing. The script never edits scanned projects. It skips projects whose
-manifest cannot be resolved and reports every skipped path for separate repair.
-
-For a non-interactive first pass, add `--auto`:
-
-```bash
-./scripts/create-baseline.sh \
-  --root /work/rust-common \
-  --internal-prefix acme- \
-  --auto
-```
-
-Auto mode selects the most frequently declared requirement for each conflict;
-when counts tie, it selects the lexically lower requirement. It writes a
-neighbouring `*.decisions.md` audit report containing every conflict, observed
-requirements, selected requirement, and decision rule. It still only generates
-a candidate baseline and never edits a governed project.
+The generated baseline is written to `policy/baselines/<release>.toml`. Your
+interactive answers become its direct-dependency rules for both `library` and
+`application` profiles, so it can be committed and adopted immediately. The
+script never edits scanned projects. It skips projects whose manifest cannot be
+resolved and reports every skipped path for separate repair.
 
 `path` and `workspace` dependencies are always internal. Registry or Git
 dependencies are third party unless their name matches a supplied
@@ -152,7 +139,7 @@ review and are not changed automatically.
 ## Current capabilities and limits
 
 - Multi-project inventory in JSON or Markdown.
-- Interactive candidate-baseline generation from external dependency conflicts.
+- Interactive baseline generation from external dependency conflicts.
 - Library and application profiles in versioned baseline files.
 - Direct requirement checks, forbidden resolved-version checks, and optional
   single-version resolved-graph checks.
