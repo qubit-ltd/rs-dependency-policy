@@ -47,6 +47,17 @@ cargo install --path .
 
 候选 baseline 默认写入 `policy/baselines/<release>.toml`。请先审核后再提交。脚本不会修改被扫描的业务仓库；manifest 无法解析的项目会被跳过并显示路径，需另行修复。
 
+如果希望先进行非交互的自动处理，可增加 `--auto`：
+
+```bash
+./scripts/create-baseline.sh \
+  --root /work/rust-common \
+  --internal-prefix acme- \
+  --auto
+```
+
+自动模式会为每个冲突选择当前声明次数最多的版本约束；票数相同时选择字典序较低的约束。它会在 baseline 相邻位置生成 `*.decisions.md` 审计报告，记录冲突、观测到的版本约束、选择结果和决策规则。自动模式仍然只生成候选 baseline，不会修改任何受治理项目。
+
 `path` 和 `workspace` 依赖始终视为内部依赖。registry 或 Git 依赖默认视为第三方依赖；若某些已发布 crate 仍属于内部生态，可重复传入 `--internal-prefix` 将其排除。没有命名空间时不传该参数即可。
 
 ## 只盘点，不做版本决策

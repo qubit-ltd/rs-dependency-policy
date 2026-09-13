@@ -57,6 +57,21 @@ The candidate is written to `policy/baselines/<release>.toml`. Review it before
 committing. The script never edits scanned projects. It skips projects whose
 manifest cannot be resolved and reports every skipped path for separate repair.
 
+For a non-interactive first pass, add `--auto`:
+
+```bash
+./scripts/create-baseline.sh \
+  --root /work/rust-common \
+  --internal-prefix acme- \
+  --auto
+```
+
+Auto mode selects the most frequently declared requirement for each conflict;
+when counts tie, it selects the lexically lower requirement. It writes a
+neighbouring `*.decisions.md` audit report containing every conflict, observed
+requirements, selected requirement, and decision rule. It still only generates
+a candidate baseline and never edits a governed project.
+
 `path` and `workspace` dependencies are always internal. Registry or Git
 dependencies are third party unless their name matches a supplied
 `--internal-prefix`. Omit that option when there is no internal namespace.
