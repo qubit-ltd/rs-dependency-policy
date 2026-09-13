@@ -6,6 +6,7 @@ repo_dir=$(cd -- "${script_dir}/.." && pwd)
 release="v$(date +%Y.%m.%d)"
 output="${repo_dir}/policy/baselines/${release}.toml"
 roots=()
+internal_prefixes=("qubit-" "rs-")
 
 usage() {
     cat <<'EOF'
@@ -14,6 +15,7 @@ usage() {
 选项：
   --release <版本>   baseline release，默认当前日期 vYYYY.MM.DD
   --output <文件>    输出候选 baseline TOML
+  --internal-prefix <前缀>  追加内部 crate 命名空间前缀（可重复）
   --help             显示帮助
 
 脚本会逐项询问冲突依赖选择。它只生成候选文件，不修改业务仓库。
@@ -25,6 +27,7 @@ while (($# > 0)); do
         --root) (($# >= 2)) || { usage >&2; exit 2; }; roots+=("$2"); shift 2 ;;
         --release) (($# >= 2)) || { usage >&2; exit 2; }; release="$2"; shift 2 ;;
         --output) (($# >= 2)) || { usage >&2; exit 2; }; output="$2"; shift 2 ;;
+        --internal-prefix) (($# >= 2)) || { usage >&2; exit 2; }; internal_prefixes+=("$2"); shift 2 ;;
         -h|--help) usage; exit 0 ;;
         *) printf '未知参数：%s\n' "$1" >&2; usage >&2; exit 2 ;;
     esac
@@ -72,6 +75,11 @@ mkdir -p "$(dirname -- "$output")"
     printf 'format = 1\nrelease = "%s"\n\n[profiles.library]\n' "$release"
     printf '# Generated from inventory; review before publishing.\n'
     while IFS= read -r name; do
+        internal=0
+        for prefix in "${internal_prefixes[@]}"; do
+            if [[ "$name" == "${prefix}"* ]]; then internal=1; break; fi
+        done
+        ((internal)) && continue
         mapfile -t choices < <(jq -r --arg n "$name" '.direct_requirements[$n][]' "$inventory")
         selected="${choices[0]}"
         if ((${#choices[@]} > 1)); then
