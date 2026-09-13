@@ -4,7 +4,7 @@ set -euo pipefail
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_dir=$(cd -- "${script_dir}/.." && pwd)
 release="v$(date +%Y.%m.%d)"
-output="${repo_dir}/target/baseline-${release}.toml"
+output="${repo_dir}/policy/baselines/${release}.toml"
 roots=()
 
 usage() {
