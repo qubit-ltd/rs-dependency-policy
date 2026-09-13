@@ -6,7 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-//! Conservative dependency-version synchronization planning and application.
+//! Direct dependency-version synchronization planning and application.
 
 use camino::Utf8Path;
 use toml_edit::DocumentMut;
@@ -14,11 +14,9 @@ use toml_edit::Item;
 use toml_edit::Value;
 use toml_edit::value;
 
+use crate::Baseline;
 use crate::PolicyError;
 use crate::Violation;
-use crate::baseline::ProfileRules;
-
-// qubit-style: allow multiple-public-types
 
 /// A planned replacement in a manifest.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,31 +41,18 @@ pub struct LockUpdate {
 }
 
 /// Safe edits and changes blocked for manual review.
-///
-/// # Examples
-///
-/// ```
-/// use qubit_dependency_policy::SyncPlan;
-///
-/// let plan = SyncPlan {
-///     manifest_edits: Vec::new(),
-///     lock_updates: Vec::new(),
-///     blocked: Vec::new(),
-/// };
-/// assert!(plan.blocked.is_empty());
-/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SyncPlan {
     /// Mechanical manifest edits.
     pub manifest_edits: Vec<FileEdit>,
-    /// Associated lockfile updates.
+    /// Kept for API compatibility with callers that display requested updates.
     pub lock_updates: Vec<LockUpdate>,
     /// Changes that must not be automated.
     pub blocked: Vec<Violation>,
 }
 
-/// Plans safe direct-dependency version replacements.
-pub fn plan_sync(project: &Utf8Path, rules: &ProfileRules) -> Result<SyncPlan, PolicyError> {
+/// Plans safe direct-dependency version replacements in standard dependency tables.
+pub fn plan_sync(project: &Utf8Path, baseline: &Baseline) -> Result<SyncPlan, PolicyError> {
     let manifest_path = project.join("Cargo.toml");
     let source = std::fs::read_to_string(manifest_path.as_std_path()).map_err(|error| {
         PolicyError::Sync {
@@ -84,45 +69,59 @@ pub fn plan_sync(project: &Utf8Path, rules: &ProfileRules) -> Result<SyncPlan, P
         lock_updates: Vec::new(),
         blocked: Vec::new(),
     };
-    for (name, rule) in &rules.direct {
-        let Some(item) = document
-            .get("dependencies")
-            .and_then(|table| table.get(name))
-        else {
+    for table_name in ["dependencies", "dev-dependencies", "build-dependencies"] {
+        let Some(table) = document.get(table_name).and_then(Item::as_table_like) else {
             continue;
         };
-        match item {
-            Item::Value(Value::String(value)) => {
-                let old = value.value().to_owned();
-                let new = rule.requirement.to_string();
-                if old != new {
-                    plan.manifest_edits.push(FileEdit {
-                        path: manifest_path.to_string(),
-                        dependency: name.clone(),
-                        old,
-                        new: new.clone(),
-                    });
-                    plan.lock_updates.push(LockUpdate {
-                        package: name.clone(),
-                        version: new,
-                    });
+        for (name, item) in table.iter() {
+            let Some(requirement) = baseline.requirement(name) else {
+                continue;
+            };
+            if let Item::Value(Value::String(old)) = item {
+                let old = old.value().to_owned();
+                if old != requirement.text() {
+                    add_edit(&mut plan, &manifest_path, name, old, requirement.text());
+                }
+            } else if let Some(inline) = item.as_inline_table() {
+                if inline.get("path").is_some() || inline.get("workspace").is_some() {
+                    continue;
+                }
+                match inline.get("version").and_then(Value::as_str) {
+                    Some(old) if old != requirement.text() => add_edit(
+                        &mut plan,
+                        &manifest_path,
+                        name,
+                        old.into(),
+                        requirement.text(),
+                    ),
+                    Some(_) => {}
+                    None => plan.blocked.push(Violation {
+                        code: "DP301",
+                        crate_name: name.into(),
+                        message: "external dependency has no version field".into(),
+                        exception_id: None,
+                    }),
                 }
             }
-            Item::Value(_) | Item::Table(_) | Item::ArrayOfTables(_) => {
-                plan.blocked.push(Violation {
-                    code: "DP301",
-                    crate_name: name.clone(),
-                    message: "dependency declaration is not a plain version string".into(),
-                    exception_id: None,
-                });
-            }
-            Item::None => {}
         }
     }
     Ok(plan)
 }
 
-/// Applies plain-string manifest edits from a synchronization plan.
+fn add_edit(plan: &mut SyncPlan, path: &Utf8Path, name: &str, old: String, new: &str) {
+    plan.manifest_edits.push(FileEdit {
+        path: path.to_string(),
+        dependency: name.into(),
+        old,
+        new: new.into(),
+    });
+    plan.lock_updates.push(LockUpdate {
+        package: name.into(),
+        version: new.into(),
+    });
+}
+
+/// Applies manifest edits from a synchronization plan.
 pub fn apply_sync(plan: &SyncPlan) -> Result<(), PolicyError> {
     if !plan.blocked.is_empty() {
         return Err(PolicyError::Sync {
@@ -140,19 +139,28 @@ pub fn apply_sync(plan: &SyncPlan) -> Result<(), PolicyError> {
             .map_err(|error| PolicyError::Sync {
                 message: format!("failed to parse {}: {error}", edit.path),
             })?;
-        let Some(item) = document
-            .get_mut("dependencies")
-            .and_then(|table| table.get_mut(&edit.dependency))
-        else {
+        let mut updated = false;
+        for table_name in ["dependencies", "dev-dependencies", "build-dependencies"] {
+            let Some(item) = document
+                .get_mut(table_name)
+                .and_then(|table| table.get_mut(&edit.dependency))
+            else {
+                continue;
+            };
+            if let Item::Value(Value::String(_)) = item {
+                *item = value(edit.new.clone());
+                updated = true;
+                break;
+            }
+            if let Some(inline) = item.as_inline_table_mut() {
+                inline.insert("version", Value::from(edit.new.clone()));
+                updated = true;
+                break;
+            }
+        }
+        if !updated {
             return Err(PolicyError::Sync {
                 message: format!("dependency {} disappeared", edit.dependency),
-            });
-        };
-        if let Item::Value(Value::String(_)) = item {
-            *item = value(edit.new.clone());
-        } else {
-            return Err(PolicyError::Sync {
-                message: format!("dependency {} is no longer a string", edit.dependency),
             });
         }
         std::fs::write(path.as_std_path(), document.to_string()).map_err(|error| {

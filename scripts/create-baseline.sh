@@ -4,7 +4,7 @@ set -euo pipefail
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_dir=$(cd -- "${script_dir}/.." && pwd)
 release="v$(date +%Y.%m.%d)"
-output="${repo_dir}/policy/baselines/${release}.toml"
+output="${repo_dir}/policy/baselines/${release}.txt"
 roots=()
 internal_prefixes=()
 
@@ -14,7 +14,7 @@ usage() {
 
 选项：
   --release <版本>   baseline release，默认当前日期 vYYYY.MM.DD
-  --output <文件>    输出 baseline TOML
+  --output <文件>    输出 baseline 文本文件
   --internal-prefix <前缀>  声明内部 crate 命名空间前缀（可重复；默认不排除任何 registry crate）
   --help             显示帮助
 
@@ -99,13 +99,9 @@ while IFS= read -r name; do
 done < <(jq -r '.direct_requirements | keys[]' "$inventory")
 
 {
-    printf 'format = 1\nrelease = "%s"\n\n[profiles.library]\n' "$release"
+    printf '# package requirement\n'
     while IFS=$'\t' read -r name selected; do
-        printf '[profiles.library.direct."%s"]\nrequirement = "%s"\n\n' "$name" "$selected"
-    done <"$rules"
-    printf '[profiles.application]\n'
-    while IFS=$'\t' read -r name selected; do
-        printf '[profiles.application.direct."%s"]\nrequirement = "%s"\n\n' "$name" "$selected"
+        printf '%s %s\n' "$name" "$selected"
     done <"$rules"
 } >"$output"
 

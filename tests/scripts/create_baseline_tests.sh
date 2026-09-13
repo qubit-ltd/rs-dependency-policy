@@ -11,6 +11,5 @@ trap 'rm -f "$output" "$report"' EXIT
   --release vtest \
   --output "$output"
 
-rg -F '[profiles.library.direct."num-bigint"]' "$output"
-rg -F 'requirement = "^0.4"' "$output"
-rg -F '[profiles.application.direct."num-bigint"]' "$output"
+rg -x 'num-bigint \^0\.4' "$output"
+! rg -F '[profiles.' "$output"

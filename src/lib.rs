@@ -21,13 +21,9 @@ pub mod source;
 pub mod sync;
 
 pub use baseline::Baseline;
-pub use baseline::DirectRule;
-pub use baseline::ProfileRules;
+pub use baseline::DependencyRequirement;
 pub use cargo::ResolvedPackage;
-pub use config::BaselineRef;
-pub use config::Profile;
 pub use config::ProjectConfig;
-pub use config::ProjectSettings;
 pub use diagnostic::Violation;
 pub use inventory::Inventory;
 pub use inventory::InventoryDependency;

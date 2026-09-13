@@ -129,7 +129,7 @@ impl Cli {
             return Ok(());
         }
         let config = self.load_config()?;
-        let baseline = load_baseline(&config.baseline, &self.project.join("target/policy-cache"))?;
+        let baseline = load_baseline(&config, &self.project.join("target/policy-cache"))?;
         match &self.command {
             Command::Inventory { .. } => unreachable!("inventory handled before baseline loading"),
             Command::Check => {
@@ -153,12 +153,7 @@ impl Cli {
                 Ok(())
             }
             Command::Sync { dry_run } => {
-                let rules = baseline.baseline.profile(config.profile()).ok_or_else(|| {
-                    PolicyError::InvalidBaseline {
-                        message: "selected profile is absent from baseline".into(),
-                    }
-                })?;
-                let plan = plan_sync(&self.project, rules)?;
+                let plan = plan_sync(&self.project, &baseline.baseline)?;
                 for edit in &plan.manifest_edits {
                     println!("{}: {} -> {}", edit.dependency, edit.old, edit.new);
                 }

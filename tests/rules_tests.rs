@@ -8,35 +8,22 @@
 
 use camino::Utf8Path;
 use camino::Utf8PathBuf;
-use qubit_dependency_policy::BaselineRef;
-use qubit_dependency_policy::Profile;
 use qubit_dependency_policy::ProjectConfig;
-use qubit_dependency_policy::ProjectSettings;
 use qubit_dependency_policy::evaluate;
 use qubit_dependency_policy::load_baseline;
 
-fn config(project: &Utf8Path) -> ProjectConfig {
+fn config(_project: &Utf8Path) -> ProjectConfig {
     ProjectConfig {
-        format: 1,
-        baseline: BaselineRef {
-            source: format!(
-                "file://{}",
-                Utf8Path::new("tests/fixtures/policy-repo")
-                    .canonicalize_utf8()
-                    .expect("policy fixture")
-            ),
-            revision: "0123456789abcdef0123456789abcdef01234567".into(),
-            release: "v2026.09.0".into(),
-            name: "test".into(),
-        },
-        project: ProjectSettings {
-            profile: if project.ends_with("application-no-lock") {
-                Profile::Application
-            } else {
-                Profile::Library
-            },
-            exceptions_path: None,
-        },
+        format: 2,
+        source: format!(
+            "file://{}",
+            Utf8Path::new("tests/fixtures/policy-repo")
+                .canonicalize_utf8()
+                .expect("policy fixture")
+        ),
+        revision: "0123456789abcdef0123456789abcdef01234567".into(),
+        baseline: "v2026.09.0".into(),
+        internal_prefixes: Vec::new(),
     }
 }
 
@@ -44,8 +31,7 @@ fn config(project: &Utf8Path) -> ProjectConfig {
 fn reports_a_direct_num_bigint_version_drift() {
     let project = Utf8PathBuf::from("tests/fixtures/num-bigint-05");
     let config = config(&project);
-    let baseline =
-        load_baseline(&config.baseline, Utf8Path::new("target/t3/cache")).expect("baseline");
+    let baseline = load_baseline(&config, Utf8Path::new("target/t3/cache")).expect("baseline");
     let evaluation = evaluate(&project, &config, &baseline).expect("evaluation");
     assert!(
         evaluation
@@ -56,16 +42,39 @@ fn reports_a_direct_num_bigint_version_drift() {
 }
 
 #[test]
-fn reports_a_missing_application_lockfile() {
+fn accepts_an_application_without_a_lockfile() {
     let project = Utf8PathBuf::from("tests/fixtures/application-no-lock");
     let config = config(&project);
-    let baseline =
-        load_baseline(&config.baseline, Utf8Path::new("target/t3/cache")).expect("baseline");
+    let baseline = load_baseline(&config, Utf8Path::new("target/t3/cache")).expect("baseline");
     let evaluation = evaluate(&project, &config, &baseline).expect("evaluation");
+    assert!(
+        !evaluation
+            .violations
+            .iter()
+            .any(|item| item.code == "DP201")
+    );
+}
+
+#[test]
+fn reports_an_external_direct_dependency_missing_from_the_baseline() {
+    let temporary = tempfile::tempdir().expect("temporary project");
+    let project = Utf8PathBuf::from_path_buf(temporary.path().to_owned()).expect("UTF-8 path");
+    std::fs::create_dir_all(project.join("src").as_std_path()).expect("source directory");
+    std::fs::write(
+        project.join("Cargo.toml").as_std_path(),
+        "[package]\nname = \"missing-baseline\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\nserde = \"1.0\"\n",
+    )
+    .expect("manifest");
+    std::fs::write(project.join("src/lib.rs").as_std_path(), "").expect("library source");
+    let config = config(&project);
+    let baseline = load_baseline(&config, Utf8Path::new("target/t3/cache")).expect("baseline");
+
+    let evaluation = evaluate(&project, &config, &baseline).expect("evaluation");
+
     assert!(
         evaluation
             .violations
             .iter()
-            .any(|item| item.code == "DP201")
+            .any(|item| item.code == "DP203")
     );
 }

@@ -7,8 +7,7 @@
 // =============================================================================
 
 use camino::Utf8Path;
-use qubit_dependency_policy::BaselineRef;
-use qubit_dependency_policy::Profile;
+use qubit_dependency_policy::ProjectConfig;
 use qubit_dependency_policy::load_baseline;
 
 fn fixture_source(name: &str) -> String {
@@ -17,28 +16,48 @@ fn fixture_source(name: &str) -> String {
 }
 
 #[test]
-fn loads_a_versioned_local_baseline() {
-    let reference = BaselineRef {
+fn loads_a_text_baseline_with_patch_compatible_requirements() {
+    let reference = ProjectConfig {
+        format: 2,
         source: fixture_source("policy-repo"),
         revision: "0123456789abcdef0123456789abcdef01234567".into(),
-        release: "v2026.09.0".into(),
-        name: "test".into(),
+        baseline: "v2026.09.0".into(),
+        internal_prefixes: Vec::new(),
     };
     let baseline = load_baseline(&reference, Utf8Path::new("target/t2/cache"))
         .expect("fixture baseline should load");
-    assert_eq!(baseline.baseline.release, "v2026.09.0");
-    assert!(baseline.baseline.profile(Profile::Library).is_some());
+    assert_eq!(baseline.release, "v2026.09.0");
+    assert_eq!(
+        baseline
+            .baseline
+            .requirement("num-bigint")
+            .expect("num-bigint requirement")
+            .text(),
+        "0.4"
+    );
 }
 
 #[test]
 fn rejects_an_unknown_release() {
-    let reference = BaselineRef {
+    let reference = ProjectConfig {
+        format: 2,
         source: fixture_source("policy-repo"),
         revision: "0123456789abcdef0123456789abcdef01234567".into(),
-        release: "v2099.01.0".into(),
-        name: "test".into(),
+        baseline: "v2099.01.0".into(),
+        internal_prefixes: Vec::new(),
     };
     let error = load_baseline(&reference, Utf8Path::new("target/t2/cache"))
         .expect_err("unknown release should fail");
     assert_eq!(error.code(), "DP102");
+}
+
+#[test]
+fn rejects_duplicate_or_malformed_text_rules() {
+    let duplicate = qubit_dependency_policy::Baseline::parse("serde 1.0\nserde 1.0\n")
+        .expect_err("duplicate package must be rejected");
+    assert_eq!(duplicate.code(), "DP103");
+
+    let malformed = qubit_dependency_policy::Baseline::parse("serde\n")
+        .expect_err("line without a requirement must be rejected");
+    assert_eq!(malformed.code(), "DP103");
 }

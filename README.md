@@ -7,17 +7,17 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
-`rs-dependency-policy` establishes and applies a shared third-party dependency
-baseline across Rust libraries, private crates, and applications. It shows
-which version requirement every project uses for an external crate and where
-repositories disagree.
+`rs-dependency-policy` gives an organization one small, readable baseline for
+all third-party *direct* Rust dependencies. It makes every governed manifest
+declare the same Cargo version requirement without attempting to replace Cargo's
+resolver or manage the transitive dependency graph.
 
-The tool is organization-neutral: callers identify their internal crates with
-parameters; no organization-specific crate name is hard-coded.
+For example, a policy can require `num-bigint 0.4` across libraries, private
+crates, and applications. Every project then declares `num-bigint = "0.4"`;
+Cargo may adopt later `0.4.x` patches through its normal update process, but no
+project can silently move to `0.5`.
 
 ## Installation
-
-Install from a checkout while the crate is being developed:
 
 ```bash
 git clone https://github.com/qubit-ltd/rs-dependency-policy.git
@@ -25,145 +25,104 @@ cd rs-dependency-policy
 cargo install --path .
 ```
 
-You can also run the commands below from a checkout with `cargo run --`. The
-bundled scripts require Bash, Cargo, and `jq` for interactive selection.
+This installs the generic Cargo subcommand `cargo dependency-policy`. Governed
+repositories do not install the tool: local developers may install it once, and
+GitHub Actions uses the reusable Action below.
 
-Installation exposes the Cargo subcommand `cargo dependency-policy`; the tool
-does not need to be installed in every governed repository.
+## Create a baseline
 
-## Quick start: create a baseline
-
-For several repository directories, generate a ready-to-adopt third-party baseline:
+Run the interactive generator in this repository:
 
 ```bash
 ./scripts/create-baseline.sh \
   --root /work/rust-common \
   --root /work/rust-platform \
   --internal-prefix acme- \
-  --internal-prefix acme_rs- \
   --release v2026.09.13
 ```
 
-Each `--root` may be a Rust project containing `Cargo.toml`, or a parent whose
-immediate children are Rust projects. The script inventories direct declarations
-and Cargo's resolved graph. When an external dependency conflicts, it asks for
-a version decision:
+Each `--root` is either a Rust project or a parent containing Rust projects one
+level below. The generator ignores `path` and `workspace` dependencies, and
+uses caller-supplied prefixes for published first-party crates. For each
+conflicting external dependency, it asks once which Cargo requirement to use.
+It writes an immediately usable, sorted file at
+`policy/baselines/<release>.txt`:
 
 ```text
-Dependency criterion has multiple declared requirements:
-  1) ^0.8
-  2) ^0.5
-Choose [1-2] (default 1, q to quit):
+# package requirement
+libc 0.2
+num-bigint 0.4
+serde 1.0
 ```
 
-The generated baseline is written to `policy/baselines/<release>.toml`. Your
-interactive answers become its direct-dependency rules for both `library` and
-`application` profiles, so it can be committed and adopted immediately. The
-script never edits scanned projects. It skips projects whose manifest cannot be
-resolved and reports every skipped path for separate repair.
+There is no profile, exception, resolved-graph, or lockfile rule. A non-comment
+line has exactly two fields: the package name and a Cargo version requirement.
 
-`path` and `workspace` dependencies are always internal. Registry or Git
-dependencies are third party unless their name matches a supplied
-`--internal-prefix`. Omit that option when there is no internal namespace.
+## Adopt and enforce it
 
-## Inventory without decisions
-
-Create a JSON review artifact without selecting versions:
-
-```bash
-./scripts/bootstrap-baseline.sh \
-  --root /work/rust-common \
-  --root /work/rust-platform \
-  --output /tmp/dependency-inventory.json
-```
-
-The equivalent CLI accepts explicit project roots:
-
-```bash
-cargo run -- inventory \
-  --root /work/rust-common/rs-example \
-  --root /work/rust-platform/rs-service \
-  --format markdown
-```
-
-Inventory records direct, build, and development declarations, optionality,
-workspace package names, resolved package versions, and direct requirement
-conflicts. It is evidence for review, not an automatically approved policy.
-
-## Adopt a reviewed baseline
-
-After committing a baseline release, add `.infra/dep/policy.toml` to each
-governed project. This is a pointer, not a copy of the baseline:
+Commit the baseline in a policy repository. Each governed repository keeps only
+the following pointer at `.infra/dep/policy.toml`; it never copies the baseline:
 
 ```toml
-format = 1
-
-[baseline]
-name = "organization-third-party"
-source = "https://github.com/qubit-ltd/rs-dependency-policy.git"
+format = 2
+source = "https://github.com/example/rust-infra.git"
 revision = "0123456789abcdef0123456789abcdef01234567"
-release = "v2026.09.13"
-
-[project]
-profile = "library" # use "application" for a locked application
+baseline = "v2026.09.13"
+internal-prefixes = ["acme-", "acme_"]
 ```
 
-Use the full commit SHA containing the selected baseline as `revision`. The
-checker fetches and detached-checks-out exactly that SHA. `file://` remains
-available for local development.
+`revision` is the full immutable Git SHA containing the selected `.txt` file.
+The checker detached-checks-out that commit. `file://` sources work for local
+development.
 
-In GitHub Actions, call the reusable Action after checkout:
+Check and synchronize a project:
+
+```bash
+cargo dependency-policy --project . check
+cargo dependency-policy --project . sync --dry-run
+cargo dependency-policy --project . sync
+```
+
+`check` rejects an external direct dependency missing from the baseline (`DP203`)
+or declaring a different requirement (`DP202`). `sync` updates standard
+`[dependencies]`, `[dev-dependencies]`, and `[build-dependencies]` entries while
+preserving inline-table features; it does not change path/workspace dependencies.
+
+Use the reusable Action in GitHub CI:
 
 ```yaml
 - uses: qubit-ltd/rs-dependency-policy/.github/actions/check@<tool-commit-sha>
   with:
     project: .
-    token: ${{ secrets.GITHUB_TOKEN }} # only needed for private baseline sources
+    token: ${{ secrets.GITHUB_TOKEN }} # only for private policy sources
 ```
 
-The Action installs the checker from its own fixed source and reads the target
-project's pointer configuration. Target repositories neither install the tool
-nor copy `policy/baselines`.
+## Patch upgrades and limits
 
-## Check, report, and synchronize
-
-Check one project:
+The baseline is a uniform declaration policy, not a lockfile or resolver
+policy. `num-bigint 0.4` permits Cargo's compatible `0.4.x` updates. Applications
+that commit `Cargo.lock` should run their usual upgrade verification after a
+patch release:
 
 ```bash
-cargo dependency-policy --project /work/rs-example check
+cargo update
+cargo test
 ```
 
-Render a report:
+Changing a minor or major line is deliberate: change the central baseline,
+commit it, update each project pointer to that commit, run `sync`, and validate.
+The tool does not constrain transitive packages, duplicate transitive versions,
+features, source registries, or lockfile contents.
+
+## Inventory
+
+For a read-only multi-project inventory, use:
 
 ```bash
-cargo dependency-policy --project /work/rs-example report --format markdown
-cargo dependency-policy --project /work/rs-example report --format json
+cargo dependency-policy inventory --root /work/rust-common --format markdown
 ```
 
-Create a safe version-edit plan before applying it:
-
-```bash
-cargo dependency-policy --project /work/rs-example sync --dry-run
-cargo dependency-policy --project /work/rs-example sync
-```
-
-Synchronization currently changes only plain string declarations in a root
-`[dependencies]` table, such as `serde = "1.0"`. Inline tables, renamed or
-target-specific dependencies, workspaces, and lockfile updates need manual
-review and are not changed automatically.
-
-## Current capabilities and limits
-
-- Multi-project inventory in JSON or Markdown.
-- Interactive baseline generation from external dependency conflicts.
-- Library and application profiles in versioned baseline files.
-- Direct requirement checks, forbidden resolved-version checks, and optional
-  single-version resolved-graph checks.
-- Conservative synchronization with dry-run.
-
-This release does not yet fetch baselines from Git, verify a local source
-against its recorded revision, enforce unlisted dependencies, apply exception
-files, or perform broad automatic Cargo manifest and lockfile migrations.
+The inventory is evidence for the generator; it is not a second policy format.
 
 ## Testing
 

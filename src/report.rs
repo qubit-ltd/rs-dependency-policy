@@ -64,9 +64,9 @@ impl Report {
         Self {
             schema_version: 1,
             baseline: BaselineIdentity {
-                release: baseline.baseline.release.clone(),
+                release: baseline.release.clone(),
                 revision: baseline.commit.clone(),
-                name: baseline.baseline.release.clone(),
+                name: baseline.release.clone(),
             },
             violations: evaluation.violations,
             packages: evaluation.packages,

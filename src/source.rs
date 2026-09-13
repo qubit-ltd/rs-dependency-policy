@@ -18,8 +18,8 @@ use camino::Utf8PathBuf;
 use url::Url;
 
 use crate::Baseline;
-use crate::BaselineRef;
 use crate::PolicyError;
+use crate::ProjectConfig;
 
 // qubit-style: allow type-file-name
 
@@ -27,31 +27,20 @@ use crate::PolicyError;
 ///
 /// # Examples
 ///
-/// ```
-/// use std::collections::BTreeMap;
-/// use qubit_dependency_policy::{Baseline, LoadedBaseline};
-///
-/// let loaded = LoadedBaseline {
-///     commit: "0123456789abcdef0123456789abcdef01234567".into(),
-///     baseline: Baseline {
-///         format: 1,
-///         release: "v2026.09.13".into(),
-///         profiles: BTreeMap::new(),
-///     },
-/// };
-/// assert_eq!(loaded.baseline.release, "v2026.09.13");
-/// ```
+/// Baselines are loaded from a fixed project configuration revision.
 #[derive(Debug, Clone)]
 pub struct LoadedBaseline {
     /// Commit SHA recorded by the project configuration.
     pub commit: String,
+    /// Baseline release selected by the project configuration.
+    pub release: String,
     /// Parsed and validated baseline.
     pub baseline: Baseline,
 }
 
 /// Loads a baseline from a local or Git policy source pinned to its revision.
 pub fn load_baseline(
-    reference: &BaselineRef,
+    reference: &ProjectConfig,
     cache: &Utf8Path,
 ) -> Result<LoadedBaseline, PolicyError> {
     let source = Url::parse(&reference.source).map_err(|error| PolicyError::Source {
@@ -82,7 +71,10 @@ fn file_source_root(source: &Url) -> Result<Utf8PathBuf, PolicyError> {
 }
 
 /// Clones or refreshes a Git source and checks out its requested revision.
-fn load_git_source(reference: &BaselineRef, cache: &Utf8Path) -> Result<Utf8PathBuf, PolicyError> {
+fn load_git_source(
+    reference: &ProjectConfig,
+    cache: &Utf8Path,
+) -> Result<Utf8PathBuf, PolicyError> {
     let source = reference
         .source
         .strip_prefix("git+")
@@ -154,24 +146,21 @@ fn run_git_in(directory: &Utf8Path, arguments: &[&str]) -> Result<String, Policy
 
 /// Reads and validates the selected baseline file from a source root.
 fn load_baseline_from_root(
-    reference: &BaselineRef,
+    reference: &ProjectConfig,
     root: Utf8PathBuf,
 ) -> Result<LoadedBaseline, PolicyError> {
     let baseline_path = root
         .join("policy/baselines")
-        .join(format!("{}.toml", reference.release));
+        .join(format!("{}.txt", reference.baseline));
     let text = std::fs::read_to_string(baseline_path.as_std_path()).map_err(|error| {
         PolicyError::Baseline {
             message: format!("failed to read {}: {error}", baseline_path),
         }
     })?;
-    let baseline: Baseline =
-        toml::from_str(&text).map_err(|error| PolicyError::InvalidBaseline {
-            message: error.to_string(),
-        })?;
-    let baseline = baseline.validate(&reference.release)?;
+    let baseline = Baseline::parse(&text)?;
     Ok(LoadedBaseline {
         commit: reference.revision.clone(),
+        release: reference.baseline.clone(),
         baseline,
     })
 }

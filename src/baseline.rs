@@ -6,101 +6,108 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-// qubit-style: allow multiple-public-types
-
-//! Baseline schema types and profile-rule validation.
+//! Plain-text third-party dependency baseline parsing.
 
 use std::collections::BTreeMap;
 
 use semver::VersionReq;
-use serde::Deserialize;
 
 use crate::PolicyError;
 
-/// A versioned dependency-policy baseline.
-///
-/// # Examples
-///
-/// ```
-/// use std::collections::BTreeMap;
-/// use qubit_dependency_policy::{Baseline, ProfileRules};
-///
-/// let baseline = Baseline {
-///     format: 1,
-///     release: "v2026.09.13".into(),
-///     profiles: BTreeMap::<String, ProfileRules>::new(),
-/// };
-/// assert_eq!(baseline.format, 1);
-/// ```
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
+/// One declared Cargo version requirement from a baseline line.
+#[derive(Debug, Clone)]
+pub struct DependencyRequirement {
+    text: String,
+    version: VersionReq,
+}
+
+impl DependencyRequirement {
+    /// Returns the original Cargo requirement text from the baseline.
+    #[must_use]
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
+    /// Returns the parsed Cargo requirement used for comparisons.
+    #[must_use]
+    pub fn version(&self) -> &VersionReq {
+        &self.version
+    }
+}
+
+/// A complete, organization-wide map of external direct dependencies.
+#[derive(Debug, Clone)]
 pub struct Baseline {
-    /// Baseline schema version.
-    pub format: u32,
-    /// Release identifier selected by the project.
-    pub release: String,
-    /// Rules grouped by project profile.
-    pub profiles: BTreeMap<String, ProfileRules>,
-}
-
-/// Rules for one project profile.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ProfileRules {
-    /// Direct dependency requirements keyed by package name.
-    #[serde(default)]
-    pub direct: BTreeMap<String, DirectRule>,
-    /// Resolved graph rules keyed by package name.
-    #[serde(default)]
-    pub resolved: BTreeMap<String, ResolvedRule>,
-}
-
-/// A direct dependency declaration rule.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DirectRule {
-    /// Required Cargo version requirement.
-    pub requirement: VersionReq,
-}
-
-/// A resolved dependency graph rule.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ResolvedRule {
-    /// Version requirements forbidden in the resolved graph.
-    #[serde(default)]
-    pub deny: Vec<VersionReq>,
-    /// Whether more than one version is forbidden.
-    #[serde(default)]
-    pub single_version: bool,
+    requirements: BTreeMap<String, DependencyRequirement>,
 }
 
 impl Baseline {
-    /// Returns the profile rules when the baseline defines the requested profile.
-    #[must_use]
-    pub fn profile(&self, profile: crate::Profile) -> Option<&ProfileRules> {
-        let name = match profile {
-            crate::Profile::Library => "library",
-            crate::Profile::Application => "application",
-        };
-        self.profiles.get(name)
+    /// Parses a baseline whose non-comment lines are `<package> <requirement>`.
+    pub fn parse(text: &str) -> Result<Self, PolicyError> {
+        let mut requirements = BTreeMap::new();
+        for (index, raw_line) in text.lines().enumerate() {
+            let line_number = index + 1;
+            let line = raw_line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            let mut fields = line.split_whitespace();
+            let name = fields
+                .next()
+                .ok_or_else(|| invalid_line(line_number, line))?;
+            let requirement = fields
+                .next()
+                .ok_or_else(|| invalid_line(line_number, line))?;
+            if fields.next().is_some() || !is_package_name(name) {
+                return Err(invalid_line(line_number, line));
+            }
+            let version =
+                VersionReq::parse(requirement).map_err(|error| PolicyError::InvalidBaseline {
+                    message: format!(
+                        "line {line_number}: invalid Cargo requirement {requirement:?}: {error}"
+                    ),
+                })?;
+            if requirements
+                .insert(
+                    name.into(),
+                    DependencyRequirement {
+                        text: requirement.into(),
+                        version,
+                    },
+                )
+                .is_some()
+            {
+                return Err(PolicyError::InvalidBaseline {
+                    message: format!("line {line_number}: duplicate package {name:?}"),
+                });
+            }
+        }
+        Ok(Self { requirements })
     }
 
-    /// Validates schema and release metadata.
-    pub(crate) fn validate(self, expected_release: &str) -> Result<Self, PolicyError> {
-        if self.format != 1 {
-            return Err(PolicyError::InvalidBaseline {
-                message: format!("unsupported baseline format {}", self.format),
-            });
-        }
-        if self.release != expected_release {
-            return Err(PolicyError::Baseline {
-                message: format!(
-                    "baseline release {} does not match requested {}",
-                    self.release, expected_release
-                ),
-            });
-        }
-        Ok(self)
+    /// Returns the policy requirement for one package.
+    #[must_use]
+    pub fn requirement(&self, package: &str) -> Option<&DependencyRequirement> {
+        self.requirements.get(package)
     }
+
+    /// Iterates package names and their requirements in stable order.
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &DependencyRequirement)> {
+        self.requirements
+            .iter()
+            .map(|(name, requirement)| (name.as_str(), requirement))
+    }
+}
+
+fn invalid_line(line_number: usize, line: &str) -> PolicyError {
+    PolicyError::InvalidBaseline {
+        message: format!("line {line_number}: expected `<package> <requirement>`, found {line:?}"),
+    }
+}
+
+fn is_package_name(name: &str) -> bool {
+    !name.is_empty()
+        && name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
 }

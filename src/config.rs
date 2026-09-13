@@ -6,90 +6,31 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-//! Project policy configuration loading and validation.
+//! Project policy pointer loading and validation.
 
 use camino::Utf8Path;
-use camino::Utf8PathBuf;
 use serde::Deserialize;
 
 use crate::PolicyError;
 
-// qubit-style: allow multiple-public-types
-
-/// Project configuration loaded from .infra/dep/policy.toml.
-///
-/// # Examples
-///
-/// ```
-/// use qubit_dependency_policy::{BaselineRef, Profile, ProjectConfig, ProjectSettings};
-///
-/// let config = ProjectConfig {
-///     format: 1,
-///     baseline: BaselineRef {
-///         source: "file:///tmp/policy".into(),
-///         revision: "0123456789abcdef0123456789abcdef01234567".into(),
-///         release: "v2026.09.13".into(),
-///         name: "example".into(),
-///     },
-///     project: ProjectSettings {
-///         profile: Profile::Library,
-///         exceptions_path: None,
-///     },
-/// };
-/// assert_eq!(config.profile(), Profile::Library);
-/// ```
+/// Project configuration loaded from `.infra/dep/policy.toml`.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectConfig {
     /// Configuration schema version.
     pub format: u32,
-    /// The selected immutable dependency baseline.
-    pub baseline: BaselineRef,
-    /// Project-specific behavior profile.
-    pub project: ProjectSettings,
-}
-
-/// A baseline selected by a project.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BaselineRef {
-    /// Git, file, or other policy source identifier.
+    /// Git or local URL of the policy repository.
     pub source: String,
-    /// Full commit SHA of the selected baseline.
+    /// Full Git commit SHA selecting immutable policy contents.
     pub revision: String,
-    /// Human-readable release associated with the commit.
-    pub release: String,
-    /// Baseline name displayed in reports.
-    pub name: String,
-}
-
-/// Project-level policy settings.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ProjectSettings {
-    /// The rules profile used by this project.
-    pub profile: Profile,
-    /// Optional project-local exception references.
-    #[serde(default)]
-    pub exceptions_path: Option<Utf8PathBuf>,
-}
-
-/// Supported project profiles.
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum Profile {
-    /// A published library with consumer-facing SemVer requirements.
-    Library,
-    /// An application with a committed, locked dependency graph.
-    Application,
+    /// Name of the selected baseline file without its `.txt` suffix.
+    pub baseline: String,
+    /// Organization-defined prefixes identifying first-party published crates.
+    #[serde(default, rename = "internal-prefixes")]
+    pub internal_prefixes: Vec<String>,
 }
 
 impl ProjectConfig {
-    /// Returns the selected project profile.
-    pub fn profile(&self) -> Profile {
-        self.project.profile
-    }
-
     /// Loads and validates the project policy configuration.
     pub fn load(
         project_root: &Utf8Path,
@@ -111,24 +52,35 @@ impl ProjectConfig {
         config.validate()
     }
 
-    /// Validates the supported schema version and revision format.
+    /// Returns whether a Cargo metadata dependency is first-party.
+    #[must_use]
+    pub fn is_internal_dependency(&self, dependency: &cargo_metadata::Dependency) -> bool {
+        dependency.path.is_some()
+            || dependency.source.is_none()
+            || self
+                .internal_prefixes
+                .iter()
+                .any(|prefix| dependency.name.starts_with(prefix))
+    }
+
     fn validate(self) -> Result<Self, PolicyError> {
-        if self.format != 1 {
+        if self.format != 2 {
             return Err(PolicyError::InvalidConfig {
                 code: "DP001",
                 message: format!("unsupported configuration format {}", self.format),
             });
         }
-        if self.baseline.revision.len() != 40
-            || !self
-                .baseline
-                .revision
-                .bytes()
-                .all(|byte| byte.is_ascii_hexdigit())
+        if self.baseline.is_empty() || self.baseline.contains('/') || self.baseline.contains('\\') {
+            return Err(PolicyError::InvalidConfig {
+                code: "DP001",
+                message: "baseline must be a simple release name".into(),
+            });
+        }
+        if self.revision.len() != 40 || !self.revision.bytes().all(|byte| byte.is_ascii_hexdigit())
         {
             return Err(PolicyError::InvalidConfig {
                 code: "DP001",
-                message: "baseline.revision must be a 40-digit hexadecimal commit SHA".into(),
+                message: "revision must be a 40-digit hexadecimal commit SHA".into(),
             });
         }
         Ok(self)

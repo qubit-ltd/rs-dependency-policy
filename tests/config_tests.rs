@@ -7,7 +7,6 @@
 // =============================================================================
 
 use camino::Utf8Path;
-use qubit_dependency_policy::Profile;
 use qubit_dependency_policy::ProjectConfig;
 
 #[test]
@@ -21,8 +20,8 @@ fn rejects_policy_without_a_40_digit_revision() {
 fn loads_the_default_project_configuration() {
     let project = Utf8Path::new("tests/fixtures/config-valid");
     let config = ProjectConfig::load(project, None).expect("valid project configuration");
-    assert_eq!(config.format, 1);
-    assert_eq!(config.profile(), Profile::Library);
+    assert_eq!(config.format, 2);
+    assert_eq!(config.baseline, "v2026.09.0");
 }
 
 #[test]

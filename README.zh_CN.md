@@ -7,13 +7,12 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![English Document](https://img.shields.io/badge/Document-English-blue.svg)](README.md)
 
-`rs-dependency-policy` 用于为多个 Rust 库、私有 crate 和独立应用建立并执行统一的第三方依赖基线。它帮助维护者确认：同一个外部 crate 应使用什么版本约束，哪些仓库当前存在不一致。
+`rs-dependency-policy` 用一份小而清晰的基线，统一组织内所有 Rust 项目的第三方**直接依赖**版本要求。它要求受治理项目在 `Cargo.toml` 中使用相同的 Cargo 版本约束，但不会替代 Cargo 的解析器，也不管理传递依赖树。
 
-工具不绑定任何组织的 crate 命名规则。内部 crate 的识别方式由调用方传入，工具本身不写死组织名称。
+例如，基线写入 `num-bigint 0.4` 后，库、私有 crate 和应用都声明
+`num-bigint = "0.4"`。Cargo 仍可按正常流程采用后续 `0.4.x` patch，任何项目却不能自行悄悄升到 `0.5`。
 
 ## 安装
-
-开发阶段可以从源码安装 CLI：
 
 ```bash
 git clone https://github.com/qubit-ltd/rs-dependency-policy.git
@@ -21,121 +20,87 @@ cd rs-dependency-policy
 cargo install --path .
 ```
 
-也可以在源码目录直接使用下文的 `cargo run --` 命令。随仓库提供的脚本需要 Bash、Cargo，以及用于交互选择版本的 `jq`。
+安装后提供通用 Cargo 子命令 `cargo dependency-policy`。受治理仓库不需要各自安装：开发者本地安装一次即可，GitHub Actions 则使用下方的复用 Action。
 
-安装后暴露的是 `cargo dependency-policy` 这个 Cargo 子命令；不需要在每一个受治理仓库中安装该工具。
+## 创建基线
 
-## 快速开始：创建 baseline
-
-如果需要为多个仓库目录建立一条可直接接入的第三方依赖基线，在本仓库运行交互式脚本：
+在本仓库执行交互式生成脚本：
 
 ```bash
 ./scripts/create-baseline.sh \
   --root /work/rust-common \
   --root /work/rust-platform \
   --internal-prefix acme- \
-  --internal-prefix acme_rs- \
   --release v2026.09.13
 ```
 
-每个 `--root` 可以是包含 `Cargo.toml` 的 Rust 项目目录，也可以是项目父目录；传入父目录时，脚本会扫描其中一级子目录下的 Rust 项目。脚本会盘点直接依赖声明和 Cargo 解析后的依赖图；当外部 crate 的版本要求不一致时，会要求操作者选择：
+每个 `--root` 可以是 Rust 项目，也可以是其父目录；父目录会扫描一级子目录。脚本自动排除 `path`、`workspace` 依赖；已发布但仍属内部生态的 crate 通过调用方传入的 `--internal-prefix` 识别。发现同一个外部依赖存在不同声明时，脚本只询问一次应选择哪个 Cargo 版本要求。
+
+结果直接写为可用且排序稳定的 `policy/baselines/<release>.txt`：
 
 ```text
-依赖 criterion 存在多个声明版本：
-  1) ^0.8
-  2) ^0.5
-选择 [1-2]（默认 1，输入 q 放弃）：
+# package requirement
+libc 0.2
+num-bigint 0.4
+serde 1.0
 ```
 
-生成的 baseline 默认写入 `policy/baselines/<release>.toml`。你的交互选择会同时写入 `library` 和 `application` 的直接依赖规则，因此文件生成后即可提交并接入。脚本不会修改被扫描的业务仓库；manifest 无法解析的项目会被跳过并显示路径，需另行修复。
+除注释外，每一行只有两个字段：包名和 Cargo 版本要求。没有 profile、例外、解析图规则或 lockfile 规则。
 
-`path` 和 `workspace` 依赖始终视为内部依赖。registry 或 Git 依赖默认视为第三方依赖；若某些已发布 crate 仍属于内部生态，可重复传入 `--internal-prefix` 将其排除。没有命名空间时不传该参数即可。
+## 接入与检查
 
-## 只盘点，不做版本决策
-
-需要先产出供团队评审的 JSON 原始数据时，使用非交互脚本：
-
-```bash
-./scripts/bootstrap-baseline.sh \
-  --root /work/rust-common \
-  --root /work/rust-platform \
-  --output /tmp/dependency-inventory.json
-```
-
-等价的 CLI 只接收明确的项目根目录：
-
-```bash
-cargo run -- inventory \
-  --root /work/rust-common/rs-example \
-  --root /work/rust-platform/rs-service \
-  --format markdown
-```
-
-盘点结果包含 normal/build/dev 直接依赖、optional 属性、workspace 包名、解析后的包版本，以及直接版本约束冲突。它是建立 baseline 的依据，不会自动成为已批准的策略。
-
-## 接入已审核的 baseline
-
-在 policy 仓库提交 baseline release 后，为每个受治理项目添加 `.infra/dep/policy.toml`。该文件是指针配置，不是 baseline 内容副本：
+将基线提交到策略仓库后，每个受治理仓库只保存下面的指针配置
+`.infra/dep/policy.toml`，无需复制基线内容：
 
 ```toml
-format = 1
-
-[baseline]
-name = "organization-third-party"
-source = "https://github.com/qubit-ltd/rs-dependency-policy.git"
+format = 2
+source = "https://github.com/example/rust-infra.git"
 revision = "0123456789abcdef0123456789abcdef01234567"
-release = "v2026.09.13"
-
-[project]
-profile = "library" # 已锁定依赖图的应用使用 "application"
+baseline = "v2026.09.13"
+internal-prefixes = ["acme-", "acme_"]
 ```
 
-`revision` 应填写包含该 baseline 的完整 Git commit SHA。检查器会 fetch 并 detached checkout 到这个精确 SHA；本地开发仍可使用 `file://`。
+`revision` 是包含该 `.txt` 基线文件的完整、不可变 Git SHA；检查器会 detached checkout 到该提交。本地调试也可以使用 `file://` source。
 
-GitHub Actions 在 checkout 后调用复用 Action：
+检查和同步单个项目：
+
+```bash
+cargo dependency-policy --project . check
+cargo dependency-policy --project . sync --dry-run
+cargo dependency-policy --project . sync
+```
+
+若外部直接依赖未登记到基线，`check` 返回 `DP203`；若版本要求不同，则返回 `DP202`。`sync` 可以同步标准 `[dependencies]`、`[dev-dependencies]` 与 `[build-dependencies]`，并保留 inline table 中的 feature；它不会改动 path/workspace 依赖。
+
+GitHub CI 中使用复用 Action：
 
 ```yaml
 - uses: qubit-ltd/rs-dependency-policy/.github/actions/check@<工具提交SHA>
   with:
     project: .
-    token: ${{ secrets.GITHUB_TOKEN }} # 私有 baseline source 才需要
+    token: ${{ secrets.GITHUB_TOKEN }} # 仅私有策略仓库需要
 ```
 
-Action 从自身固定版本安装检查器，再读取目标项目的指针配置。目标仓库不需要安装工具，也不需要复制 `policy/baselines`。
+## Patch 升级与边界
 
-## 检查、报告与安全同步
-
-检查一个项目是否符合它选择的 baseline：
+基线管理的是统一声明，不是 lockfile 或依赖解析系统。`num-bigint 0.4` 允许 Cargo 采用兼容的 `0.4.x` patch。提交 `Cargo.lock` 的应用在 patch 发布后，应沿用自己的升级验证流程：
 
 ```bash
-cargo dependency-policy --project /work/rs-example check
+cargo update
+cargo test
 ```
 
-输出人类可读或 JSON 格式的报告：
+升级 minor 或 major 必须有意进行：先改中心基线、提交该基线、让各项目指向新提交、执行 `sync`，再验证。工具不约束传递依赖、传递依赖的重复版本、feature、源 registry 或 `Cargo.lock` 内容。
+
+## 依赖盘点
+
+仅需只读盘点多个项目时，运行：
 
 ```bash
-cargo dependency-policy --project /work/rs-example report --format markdown
-cargo dependency-policy --project /work/rs-example report --format json
+cargo dependency-policy inventory --root /work/rust-common --format markdown
 ```
 
-先生成安全的版本修改计划，确认后再执行：
-
-```bash
-cargo dependency-policy --project /work/rs-example sync --dry-run
-cargo dependency-policy --project /work/rs-example sync
-```
-
-当前同步仅会修改根 `Cargo.toml` 的 `[dependencies]` 中纯字符串版本声明，例如 `serde = "1.0"`。inline table、别名依赖、target-specific 依赖、workspace 依赖及 `Cargo.lock` 更新都需要人工审核，不会被自动修改。
-
-## 当前能力与边界
-
-- 多项目 JSON/Markdown inventory；
-- 根据外部依赖冲突交互生成 baseline；
-- versioned baseline 中的 library/application profile；
-- 直接版本约束、禁止 resolved 版本、可选单版本 resolved 图检查；
-- 带 dry-run 的保守同步。
-
-当前尚不支持 Git 拉取 baseline、校验本地 source 与记录 revision 一致性、阻止未登记依赖、应用 exception 文件，以及大范围自动修改 Cargo manifest 或 lockfile。
+盘点结果是交互生成基线的依据，不是另一种策略格式。
 
 ## 测试
 

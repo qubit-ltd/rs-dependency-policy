@@ -1,10 +1,4 @@
-format = 1
-
-[baseline]
+format = 2
 source = "file:///tmp/policy"
 revision = "v2026.09.0"
-release = "v2026.09.0"
-name = "test"
-
-[project]
-profile = "library"
+baseline = "v2026.09.0"

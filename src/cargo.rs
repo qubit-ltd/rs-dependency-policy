@@ -15,7 +15,6 @@ use cargo_metadata::Package;
 use serde::Serialize;
 
 use crate::PolicyError;
-use crate::Profile;
 
 // qubit-style: allow type-file-name
 
@@ -30,23 +29,14 @@ pub struct ResolvedPackage {
     pub source: Option<String>,
 }
 
-/// Loads Cargo metadata for a project and optionally enforces its lockfile.
+/// Loads root-package Cargo metadata without resolving or updating dependencies.
 pub(crate) fn load_metadata(
     project: &Utf8Path,
-    profile: Profile,
 ) -> Result<(Metadata, Option<Package>), PolicyError> {
     let manifest = project.join("Cargo.toml");
-    if profile == Profile::Application && !project.join("Cargo.lock").exists() {
-        return Err(PolicyError::Cargo {
-            code: "DP201",
-            message: format!("application {} has no Cargo.lock", project),
-        });
-    }
     let mut command = MetadataCommand::new();
     command.manifest_path(manifest.as_std_path());
-    if profile == Profile::Application || project.join("Cargo.lock").exists() {
-        command.other_options(vec!["--locked".into()]);
-    }
+    command.no_deps();
     let metadata = command.exec().map_err(|error| PolicyError::Cargo {
         code: "DP201",
         message: error.to_string(),

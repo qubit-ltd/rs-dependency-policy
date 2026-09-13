@@ -10,8 +10,7 @@ use std::process::Command;
 
 use camino::Utf8Path;
 use camino::Utf8PathBuf;
-use qubit_dependency_policy::BaselineRef;
-use qubit_dependency_policy::Profile;
+use qubit_dependency_policy::ProjectConfig;
 use qubit_dependency_policy::load_baseline;
 use tempfile::TempDir;
 use tempfile::tempdir;
@@ -35,17 +34,7 @@ fn run_git(directory: &Utf8Path, arguments: &[&str]) -> String {
 }
 
 fn baseline(requirement: &str) -> String {
-    format!(
-        r#"format = 1
-release = "v2026.09.0"
-
-[profiles.library.direct.num-bigint]
-requirement = "{requirement}"
-
-[profiles.application.direct.num-bigint]
-requirement = "{requirement}"
-"#
-    )
+    format!("num-bigint {requirement}\n")
 }
 
 fn create_remote() -> (TempDir, Utf8PathBuf, String) {
@@ -64,7 +53,7 @@ fn create_remote() -> (TempDir, Utf8PathBuf, String) {
     );
     std::fs::write(
         worktree
-            .join("policy/baselines/v2026.09.0.toml")
+            .join("policy/baselines/v2026.09.0.txt")
             .as_std_path(),
         baseline("^0.4"),
     )
@@ -77,7 +66,7 @@ fn create_remote() -> (TempDir, Utf8PathBuf, String) {
 
     std::fs::write(
         worktree
-            .join("policy/baselines/v2026.09.0.toml")
+            .join("policy/baselines/v2026.09.0.txt")
             .as_std_path(),
         baseline("^0.5"),
     )
@@ -93,11 +82,12 @@ fn create_remote() -> (TempDir, Utf8PathBuf, String) {
 fn test_load_baseline_checks_out_the_requested_git_revision() {
     let (_temporary, remote, revision) = create_remote();
     let source = format!("git+file://{remote}");
-    let reference = BaselineRef {
+    let reference = ProjectConfig {
+        format: 2,
         source,
         revision: revision.clone(),
-        release: "v2026.09.0".into(),
-        name: "test".into(),
+        baseline: "v2026.09.0".into(),
+        internal_prefixes: Vec::new(),
     };
     let cache = tempdir().expect("cache directory");
     let cache = Utf8Path::from_path(cache.path()).expect("UTF-8 cache path");
@@ -105,17 +95,12 @@ fn test_load_baseline_checks_out_the_requested_git_revision() {
     let loaded = load_baseline(&reference, cache).expect("pinned Git baseline should load");
 
     assert_eq!(loaded.commit, revision);
-    let rules = loaded
-        .baseline
-        .profile(Profile::Library)
-        .expect("library rules");
     assert_eq!(
-        rules
-            .direct
-            .get("num-bigint")
+        loaded
+            .baseline
+            .requirement("num-bigint")
             .expect("num-bigint rule")
-            .requirement
-            .to_string(),
+            .text(),
         "^0.4"
     );
 }
@@ -125,11 +110,12 @@ fn test_load_baseline_keeps_file_sources_compatible() {
     let source_root = Utf8Path::new("tests/fixtures/policy-repo")
         .canonicalize_utf8()
         .expect("fixture path");
-    let reference = BaselineRef {
+    let reference = ProjectConfig {
+        format: 2,
         source: format!("file://{source_root}"),
         revision: "0123456789abcdef0123456789abcdef01234567".into(),
-        release: "v2026.09.0".into(),
-        name: "test".into(),
+        baseline: "v2026.09.0".into(),
+        internal_prefixes: Vec::new(),
     };
 
     let loaded = load_baseline(&reference, Utf8Path::new("target/source-test-cache"))
