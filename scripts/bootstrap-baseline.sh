@@ -44,12 +44,24 @@ done
     exit 2
 }
 
+expanded=()
 for root in "${roots[@]}"; do
-    [[ -f "${root}/Cargo.toml" ]] || {
-        printf '不是 Rust 项目根目录（缺少 Cargo.toml）：%s\n' "$root" >&2
+    if [[ -f "${root}/Cargo.toml" ]]; then
+        expanded+=("$root")
+        continue
+    fi
+    found=0
+    for manifest in "$root"/*/Cargo.toml; do
+        [[ -f "$manifest" ]] || continue
+        expanded+=("${manifest%/Cargo.toml}")
+        found=1
+    done
+    ((found)) || {
+        printf '不是 Rust 项目目录或一级父目录：%s\n' "$root" >&2
         exit 2
     }
 done
+roots=("${expanded[@]}")
 
 mkdir -p "$(dirname -- "$output")"
 args=(run --quiet -- inventory)
