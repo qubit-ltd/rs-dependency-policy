@@ -60,6 +60,9 @@ Copyright (c) 2025 - 2026. Haixing Hu. All rights reserved.
 欢迎贡献。请遵循 Rust API 指南，及时更新公共 API 文档与测试，并在提交
 Pull Request 前运行 ./align-ci.sh 格式化代码，运行 ./ci-check.sh 对齐 CI 要求。
 
+内部 crate 命名空间通过调用参数传入，不由工具写死。例如 Qubit 项目可增加
+`--internal-prefix qubit- --internal-prefix rs-`；其它组织应替换为自己的前缀，或不传该参数。
+
 ## 作者
 
 **Haixing Hu** - *Qubit Co. Ltd.*

@@ -61,6 +61,10 @@ Contributions are welcome. Please follow the Rust API guidelines, keep public
 API documentation and tests current, and run ./align-ci.sh to format code and
 ./ci-check.sh to satisfy CI requirements before submitting a pull request.
 
+Internal crate namespaces are supplied by the caller rather than hard-coded. A
+Qubit invocation may add `--internal-prefix qubit- --internal-prefix rs-`;
+other organizations should use their own prefixes or omit the option.
+
 ## Author
 
 **Haixing Hu** - *Qubit Co. Ltd.*

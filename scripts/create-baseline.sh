@@ -6,7 +6,7 @@ repo_dir=$(cd -- "${script_dir}/.." && pwd)
 release="v$(date +%Y.%m.%d)"
 output="${repo_dir}/policy/baselines/${release}.toml"
 roots=()
-internal_prefixes=("qubit-" "rs-")
+internal_prefixes=()
 
 usage() {
     cat <<'EOF'
@@ -15,7 +15,7 @@ usage() {
 选项：
   --release <版本>   baseline release，默认当前日期 vYYYY.MM.DD
   --output <文件>    输出候选 baseline TOML
-  --internal-prefix <前缀>  追加内部 crate 命名空间前缀（可重复）
+  --internal-prefix <前缀>  声明内部 crate 命名空间前缀（可重复；默认不排除任何 registry crate）
   --help             显示帮助
 
 脚本会逐项询问冲突依赖选择。它只生成候选文件，不修改业务仓库。
