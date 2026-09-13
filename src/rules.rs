@@ -1,13 +1,42 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
+//! Baseline rule evaluation for project dependency graphs.
+
 use std::collections::BTreeMap;
 
 use camino::Utf8Path;
 
+use crate::LoadedBaseline;
+use crate::PolicyError;
+use crate::Profile;
+use crate::ProjectConfig;
 use crate::baseline::ProfileRules;
-use crate::cargo::{ResolvedPackage, load_metadata, resolved_packages};
+use crate::cargo::ResolvedPackage;
+use crate::cargo::load_metadata;
+use crate::cargo::resolved_packages;
 use crate::diagnostic::Violation;
-use crate::{LoadedBaseline, PolicyError, Profile, ProjectConfig};
+
+// qubit-style: allow type-file-name
 
 /// Results of evaluating one project.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_dependency_policy::Evaluation;
+///
+/// let evaluation = Evaluation {
+///     violations: Vec::new(),
+///     packages: Vec::new(),
+/// };
+/// assert!(evaluation.violations.is_empty());
+/// ```
 #[derive(Debug, Clone)]
 pub struct Evaluation {
     /// Violations found by the evaluator.
@@ -57,6 +86,7 @@ pub fn evaluate(
     })
 }
 
+/// Compares direct dependency requirements with the selected baseline rules.
 fn check_direct_dependencies(
     root: &cargo_metadata::Package,
     rules: &ProfileRules,
@@ -80,6 +110,7 @@ fn check_direct_dependencies(
     }
 }
 
+/// Checks resolved packages for denied versions and duplicate-version violations.
 fn check_resolved_packages(
     packages: &[ResolvedPackage],
     rules: &ProfileRules,

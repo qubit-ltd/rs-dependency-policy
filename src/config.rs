@@ -1,9 +1,43 @@
-use camino::{Utf8Path, Utf8PathBuf};
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
+//! Project policy configuration loading and validation.
+
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use serde::Deserialize;
 
 use crate::PolicyError;
 
+// qubit-style: allow multiple-public-types
+
 /// Project configuration loaded from .infra/dep/policy.toml.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_dependency_policy::{BaselineRef, Profile, ProjectConfig, ProjectSettings};
+///
+/// let config = ProjectConfig {
+///     format: 1,
+///     baseline: BaselineRef {
+///         source: "file:///tmp/policy".into(),
+///         revision: "0123456789abcdef0123456789abcdef01234567".into(),
+///         release: "v2026.09.13".into(),
+///         name: "example".into(),
+///     },
+///     project: ProjectSettings {
+///         profile: Profile::Library,
+///         exceptions_path: None,
+///     },
+/// };
+/// assert_eq!(config.profile(), Profile::Library);
+/// ```
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectConfig {
@@ -77,6 +111,7 @@ impl ProjectConfig {
         config.validate()
     }
 
+    /// Validates the supported schema version and revision format.
     fn validate(self) -> Result<Self, PolicyError> {
         if self.format != 1 {
             return Err(PolicyError::InvalidConfig {

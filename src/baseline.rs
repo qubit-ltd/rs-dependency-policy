@@ -1,3 +1,15 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
+// qubit-style: allow multiple-public-types
+
+//! Baseline schema types and profile-rule validation.
+
 use std::collections::BTreeMap;
 
 use semver::VersionReq;
@@ -6,6 +18,20 @@ use serde::Deserialize;
 use crate::PolicyError;
 
 /// A versioned dependency-policy baseline.
+///
+/// # Examples
+///
+/// ```
+/// use std::collections::BTreeMap;
+/// use qubit_dependency_policy::{Baseline, ProfileRules};
+///
+/// let baseline = Baseline {
+///     format: 1,
+///     release: "v2026.09.13".into(),
+///     profiles: BTreeMap::<String, ProfileRules>::new(),
+/// };
+/// assert_eq!(baseline.format, 1);
+/// ```
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Baseline {
@@ -50,7 +76,8 @@ pub struct ResolvedRule {
 }
 
 impl Baseline {
-    /// Returns the rules for a project profile.
+    /// Returns the profile rules when the baseline defines the requested profile.
+    #[must_use]
     pub fn profile(&self, profile: crate::Profile) -> Option<&ProfileRules> {
         let name = match profile {
             crate::Profile::Library => "library",

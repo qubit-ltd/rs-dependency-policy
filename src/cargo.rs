@@ -1,8 +1,23 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
+//! Cargo metadata loading and resolved-package projection.
+
 use camino::Utf8Path;
-use cargo_metadata::{Metadata, MetadataCommand, Package};
+use cargo_metadata::Metadata;
+use cargo_metadata::MetadataCommand;
+use cargo_metadata::Package;
 use serde::Serialize;
 
-use crate::{PolicyError, Profile};
+use crate::PolicyError;
+use crate::Profile;
+
+// qubit-style: allow type-file-name
 
 /// A resolved package represented in a policy report.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -15,6 +30,7 @@ pub struct ResolvedPackage {
     pub source: Option<String>,
 }
 
+/// Loads Cargo metadata for a project and optionally enforces its lockfile.
 pub(crate) fn load_metadata(
     project: &Utf8Path,
     profile: Profile,
@@ -39,6 +55,7 @@ pub(crate) fn load_metadata(
     Ok((metadata, root))
 }
 
+/// Converts Cargo metadata packages into stable report records.
 pub(crate) fn resolved_packages(metadata: &Metadata) -> Vec<ResolvedPackage> {
     metadata
         .packages

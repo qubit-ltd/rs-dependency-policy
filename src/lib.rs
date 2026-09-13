@@ -1,3 +1,11 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
 //! Public library API for loading a dependency-policy project configuration.
 
 pub mod baseline;
@@ -6,117 +14,38 @@ pub mod cli;
 mod config;
 pub mod diagnostic;
 pub mod inventory;
+mod policy_error;
 pub mod report;
 pub mod rules;
 pub mod source;
 pub mod sync;
 
-pub use baseline::{Baseline, DirectRule, ProfileRules};
+pub use baseline::Baseline;
+pub use baseline::DirectRule;
+pub use baseline::ProfileRules;
 pub use cargo::ResolvedPackage;
-pub use config::{BaselineRef, Profile, ProjectConfig, ProjectSettings};
+pub use config::BaselineRef;
+pub use config::Profile;
+pub use config::ProjectConfig;
+pub use config::ProjectSettings;
 pub use diagnostic::Violation;
-pub use inventory::{
-    Inventory, InventoryDependency, InventoryProject, render_inventory_json,
-    render_inventory_markdown, scan_projects,
-};
-pub use report::{BaselineIdentity, Report, render_json, render_markdown};
-pub use rules::{Evaluation, evaluate};
-pub use source::{LoadedBaseline, load_baseline};
-pub use sync::{FileEdit, LockUpdate, SyncPlan, apply_sync, plan_sync};
-
-/// Errors returned while loading or validating policy configuration.
-#[derive(Debug, thiserror::Error)]
-pub enum PolicyError {
-    /// The project configuration file could not be read.
-    #[error("failed to read policy configuration {path}: {source}")]
-    ReadConfig {
-        /// The path that could not be read.
-        path: String,
-        /// The underlying I/O error.
-        source: std::io::Error,
-    },
-    /// The project configuration TOML is invalid.
-    #[error("invalid policy configuration {path}: {source}")]
-    ParseConfig {
-        /// The path containing invalid TOML.
-        path: String,
-        /// The underlying TOML error.
-        source: toml::de::Error,
-    },
-    /// A policy configuration value violates the configuration contract.
-    #[error("[{code}] {message}")]
-    InvalidConfig {
-        /// Stable machine-readable diagnostic code.
-        code: &'static str,
-        /// Human-readable diagnostic detail.
-        message: String,
-    },
-    /// The selected policy source cannot be loaded or verified.
-    #[error("[DP101] {message}")]
-    Source {
-        /// Human-readable source failure detail.
-        message: String,
-    },
-    /// The selected baseline release cannot be loaded.
-    #[error("[DP102] {message}")]
-    Baseline {
-        /// Human-readable baseline failure detail.
-        message: String,
-    },
-    /// The baseline contents violate the baseline schema.
-    #[error("[DP103] {message}")]
-    InvalidBaseline {
-        /// Human-readable schema failure detail.
-        message: String,
-    },
-    /// Cargo metadata or lockfile evaluation failed.
-    #[error("[{code}] {message}")]
-    Cargo {
-        /// Stable diagnostic code.
-        code: &'static str,
-        /// Human-readable Cargo failure detail.
-        message: String,
-    },
-    /// Report serialization failed.
-    #[error("[DP104] {message}")]
-    Report {
-        /// Human-readable serialization failure detail.
-        message: String,
-    },
-    /// The project contains policy violations.
-    #[error("[DP200] {count} policy violation(s) found")]
-    PolicyViolation {
-        /// Number of violations.
-        count: usize,
-    },
-    /// A command is not yet available.
-    #[error("[DP105] {message}")]
-    Unsupported {
-        /// Human-readable unsupported-command detail.
-        message: String,
-    },
-    /// Manifest synchronization failed.
-    #[error("[DP301] {message}")]
-    Sync {
-        /// Human-readable synchronization failure detail.
-        message: String,
-    },
-}
-
-impl PolicyError {
-    /// Returns the stable diagnostic code for this error.
-    pub fn code(&self) -> &'static str {
-        match self {
-            Self::ReadConfig { .. } | Self::ParseConfig { .. } => "DP001",
-            Self::InvalidConfig { code, .. } => code,
-            Self::Source { .. } => "DP101",
-            Self::Baseline { .. } => "DP102",
-            Self::InvalidBaseline { .. } => "DP103",
-            Self::Cargo { code, .. } => code,
-            Self::Report { .. } => "DP104",
-            Self::PolicyViolation { .. } => "DP200",
-            Self::Unsupported { .. } => "DP105",
-            Self::Sync { .. } => "DP301",
-        }
-    }
-}
+pub use inventory::Inventory;
+pub use inventory::InventoryDependency;
+pub use inventory::InventoryProject;
+pub use inventory::render_inventory_json;
+pub use inventory::render_inventory_markdown;
+pub use inventory::scan_projects;
+pub use policy_error::PolicyError;
+pub use report::BaselineIdentity;
+pub use report::Report;
+pub use report::render_json;
+pub use report::render_markdown;
+pub use rules::Evaluation;
+pub use rules::evaluate;
+pub use source::LoadedBaseline;
+pub use source::load_baseline;
+pub use sync::FileEdit;
+pub use sync::LockUpdate;
+pub use sync::SyncPlan;
+pub use sync::apply_sync;
+pub use sync::plan_sync;

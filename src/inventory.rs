@@ -1,10 +1,23 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
+//! Dependency inventory scanning and report rendering.
+
 use std::collections::BTreeMap;
 
 use camino::Utf8PathBuf;
-use cargo_metadata::{DependencyKind, MetadataCommand};
+use cargo_metadata::DependencyKind;
+use cargo_metadata::MetadataCommand;
 use serde::Serialize;
 
 use crate::PolicyError;
+
+// qubit-style: allow multiple-public-types
 
 /// A dependency declared by a package in an inventory scan.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -37,6 +50,20 @@ pub struct InventoryProject {
 }
 
 /// Complete result of a multi-project inventory scan.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_dependency_policy::Inventory;
+///
+/// let inventory = Inventory {
+///     schema_version: 1,
+///     projects: Vec::new(),
+///     direct_requirements: Default::default(),
+///     conflicts: Default::default(),
+/// };
+/// assert!(inventory.projects.is_empty());
+/// ```
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct Inventory {
     /// Inventory schema version.

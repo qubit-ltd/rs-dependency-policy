@@ -1,12 +1,48 @@
-use camino::Utf8PathBuf;
-use clap::{Parser, Subcommand, ValueEnum};
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 
-use crate::{
-    PolicyError, ProjectConfig, Report, apply_sync, evaluate, load_baseline, plan_sync,
-    render_inventory_json, render_inventory_markdown, render_json, render_markdown, scan_projects,
-};
+//! Command-line argument types and command execution.
+
+use camino::Utf8PathBuf;
+use clap::Parser;
+use clap::Subcommand;
+use clap::ValueEnum;
+
+use crate::PolicyError;
+use crate::ProjectConfig;
+use crate::Report;
+use crate::apply_sync;
+use crate::evaluate;
+use crate::load_baseline;
+use crate::plan_sync;
+use crate::render_inventory_json;
+use crate::render_inventory_markdown;
+use crate::render_json;
+use crate::render_markdown;
+use crate::scan_projects;
+
+// qubit-style: allow multiple-public-types
 
 /// Command-line arguments for cargo-dependency-policy.
+///
+/// # Examples
+///
+/// ```
+/// use camino::Utf8PathBuf;
+/// use qubit_dependency_policy::cli::{Cli, Command};
+///
+/// let cli = Cli {
+///     project: Utf8PathBuf::from("."),
+///     config: None,
+///     command: Command::Check,
+/// };
+/// assert_eq!(cli.project, Utf8PathBuf::from("."));
+/// ```
 #[derive(Debug, Parser)]
 #[command(name = "cargo-dependency-policy")]
 pub struct Cli {

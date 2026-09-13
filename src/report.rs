@@ -1,6 +1,20 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
+//! Policy report data models and renderers.
+
 use serde::Serialize;
 
-use crate::{Evaluation, LoadedBaseline, PolicyError};
+use crate::Evaluation;
+use crate::LoadedBaseline;
+use crate::PolicyError;
+
+// qubit-style: allow multiple-public-types
 
 /// Stable identity of the baseline used for a report.
 #[derive(Debug, Clone, Serialize)]
@@ -14,6 +28,24 @@ pub struct BaselineIdentity {
 }
 
 /// Machine-readable and human-readable policy report data.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_dependency_policy::{BaselineIdentity, Report};
+///
+/// let report = Report {
+///     schema_version: 1,
+///     baseline: BaselineIdentity {
+///         release: "v2026.09.13".into(),
+///         revision: "0123456789abcdef0123456789abcdef01234567".into(),
+///         name: "example".into(),
+///     },
+///     violations: Vec::new(),
+///     packages: Vec::new(),
+/// };
+/// assert!(report.violations.is_empty());
+/// ```
 #[derive(Debug, Clone, Serialize)]
 pub struct Report {
     /// Report schema version.

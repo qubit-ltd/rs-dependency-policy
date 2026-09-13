@@ -1,4 +1,16 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
+//! Stable diagnostics emitted by policy evaluation.
+
 use serde::Serialize;
+
+// qubit-style: allow type-file-name
 
 /// A policy violation with a stable machine-readable code.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

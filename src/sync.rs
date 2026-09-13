@@ -1,8 +1,24 @@
-use camino::Utf8Path;
-use toml_edit::{DocumentMut, Item, Value};
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 
+//! Conservative dependency-version synchronization planning and application.
+
+use camino::Utf8Path;
+use toml_edit::DocumentMut;
+use toml_edit::Item;
+use toml_edit::Value;
+use toml_edit::value;
+
+use crate::PolicyError;
+use crate::Violation;
 use crate::baseline::ProfileRules;
-use crate::{PolicyError, Violation};
+
+// qubit-style: allow multiple-public-types
 
 /// A planned replacement in a manifest.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -27,6 +43,19 @@ pub struct LockUpdate {
 }
 
 /// Safe edits and changes blocked for manual review.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_dependency_policy::SyncPlan;
+///
+/// let plan = SyncPlan {
+///     manifest_edits: Vec::new(),
+///     lock_updates: Vec::new(),
+///     blocked: Vec::new(),
+/// };
+/// assert!(plan.blocked.is_empty());
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SyncPlan {
     /// Mechanical manifest edits.
@@ -120,7 +149,7 @@ pub fn apply_sync(plan: &SyncPlan) -> Result<(), PolicyError> {
             });
         };
         if let Item::Value(Value::String(_)) = item {
-            *item = toml_edit::value(edit.new.clone());
+            *item = value(edit.new.clone());
         } else {
             return Err(PolicyError::Sync {
                 message: format!("dependency {} is no longer a string", edit.dependency),

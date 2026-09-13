@@ -1,15 +1,46 @@
-use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
-    process::Command,
-};
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 
-use camino::{Utf8Path, Utf8PathBuf};
+//! Local and Git baseline source resolution.
+
+use std::collections::hash_map::DefaultHasher;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::process::Command;
+
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use url::Url;
 
-use crate::{Baseline, BaselineRef, PolicyError};
+use crate::Baseline;
+use crate::BaselineRef;
+use crate::PolicyError;
+
+// qubit-style: allow type-file-name
 
 /// A baseline together with the source commit used to load it.
+///
+/// # Examples
+///
+/// ```
+/// use std::collections::BTreeMap;
+/// use qubit_dependency_policy::{Baseline, LoadedBaseline};
+///
+/// let loaded = LoadedBaseline {
+///     commit: "0123456789abcdef0123456789abcdef01234567".into(),
+///     baseline: Baseline {
+///         format: 1,
+///         release: "v2026.09.13".into(),
+///         profiles: BTreeMap::new(),
+///     },
+/// };
+/// assert_eq!(loaded.baseline.release, "v2026.09.13");
+/// ```
 #[derive(Debug, Clone)]
 pub struct LoadedBaseline {
     /// Commit SHA recorded by the project configuration.
@@ -40,6 +71,7 @@ pub fn load_baseline(
     load_baseline_from_root(reference, root)
 }
 
+/// Converts a file URL into the UTF-8 local path containing the baseline.
 fn file_source_root(source: &Url) -> Result<Utf8PathBuf, PolicyError> {
     let root = source.to_file_path().map_err(|_| PolicyError::Source {
         message: "file policy source has no local path".into(),
@@ -49,6 +81,7 @@ fn file_source_root(source: &Url) -> Result<Utf8PathBuf, PolicyError> {
     })
 }
 
+/// Clones or refreshes a Git source and checks out its requested revision.
 fn load_git_source(reference: &BaselineRef, cache: &Utf8Path) -> Result<Utf8PathBuf, PolicyError> {
     let source = reference
         .source
@@ -79,16 +112,19 @@ fn load_git_source(reference: &BaselineRef, cache: &Utf8Path) -> Result<Utf8Path
     Ok(root)
 }
 
+/// Creates a stable cache directory name for a source URL.
 fn git_cache_name(source: &str) -> String {
     let mut hasher = DefaultHasher::new();
     source.hash(&mut hasher);
     format!("git-{:016x}", hasher.finish())
 }
 
+/// Runs Git in an existing repository and returns trimmed UTF-8 stdout.
 fn run_git(repository: &Utf8Path, arguments: &[&str]) -> Result<String, PolicyError> {
     run_git_in(repository, arguments)
 }
 
+/// Runs Git in a directory and maps process or output failures to policy errors.
 fn run_git_in(directory: &Utf8Path, arguments: &[&str]) -> Result<String, PolicyError> {
     let output = Command::new("git")
         .args(arguments)
@@ -116,6 +152,7 @@ fn run_git_in(directory: &Utf8Path, arguments: &[&str]) -> Result<String, Policy
         })
 }
 
+/// Reads and validates the selected baseline file from a source root.
 fn load_baseline_from_root(
     reference: &BaselineRef,
     root: Utf8PathBuf,
