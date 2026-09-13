@@ -1,5 +1,14 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
 use camino::Utf8PathBuf;
-use qubit_dependency_policy::{render_inventory_markdown, scan_projects};
+use qubit_dependency_policy::render_inventory_markdown;
+use qubit_dependency_policy::scan_projects;
 
 #[test]
 fn scans_direct_requirements_and_resolved_graph() {

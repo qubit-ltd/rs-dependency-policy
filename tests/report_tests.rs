@@ -1,4 +1,16 @@
-use qubit_dependency_policy::{BaselineIdentity, Report, Violation, render_json, render_markdown};
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
+use qubit_dependency_policy::BaselineIdentity;
+use qubit_dependency_policy::Report;
+use qubit_dependency_policy::Violation;
+use qubit_dependency_policy::render_json;
+use qubit_dependency_policy::render_markdown;
 
 #[test]
 fn renders_empty_json_and_markdown_reports() {

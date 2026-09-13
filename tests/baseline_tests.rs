@@ -1,5 +1,15 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
 use camino::Utf8Path;
-use qubit_dependency_policy::{BaselineRef, Profile, load_baseline};
+use qubit_dependency_policy::BaselineRef;
+use qubit_dependency_policy::Profile;
+use qubit_dependency_policy::load_baseline;
 
 fn fixture_source(name: &str) -> String {
     let path = Utf8Path::new("tests/fixtures").join(name);

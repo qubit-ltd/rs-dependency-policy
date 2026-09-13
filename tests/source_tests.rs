@@ -1,8 +1,20 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
 use std::process::Command;
 
-use camino::{Utf8Path, Utf8PathBuf};
-use qubit_dependency_policy::{BaselineRef, Profile, load_baseline};
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
+use qubit_dependency_policy::BaselineRef;
+use qubit_dependency_policy::Profile;
+use qubit_dependency_policy::load_baseline;
 use tempfile::TempDir;
+use tempfile::tempdir;
 
 fn run_git(directory: &Utf8Path, arguments: &[&str]) -> String {
     let output = Command::new("git")
@@ -87,7 +99,7 @@ fn test_load_baseline_checks_out_the_requested_git_revision() {
         release: "v2026.09.0".into(),
         name: "test".into(),
     };
-    let cache = tempfile::tempdir().expect("cache directory");
+    let cache = tempdir().expect("cache directory");
     let cache = Utf8Path::from_path(cache.path()).expect("UTF-8 cache path");
 
     let loaded = load_baseline(&reference, cache).expect("pinned Git baseline should load");

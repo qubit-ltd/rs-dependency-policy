@@ -1,5 +1,14 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
 use camino::Utf8Path;
-use qubit_dependency_policy::{Profile, ProjectConfig};
+use qubit_dependency_policy::Profile;
+use qubit_dependency_policy::ProjectConfig;
 
 #[test]
 fn rejects_policy_without_a_40_digit_revision() {

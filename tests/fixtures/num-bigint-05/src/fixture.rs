@@ -6,4 +6,9 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-fn main() {}
+use num_bigint::BigInt;
+
+/// Returns a fixed integer used by dependency-resolution tests.
+pub fn fixture_value() -> BigInt {
+    1.into()
+}

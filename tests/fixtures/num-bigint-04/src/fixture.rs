@@ -6,4 +6,5 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-fn main() {}
+/// Provides the minimal fixture library entry point.
+pub fn fixture() {}

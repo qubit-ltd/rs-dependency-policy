@@ -1,7 +1,17 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
 use std::collections::BTreeMap;
 
 use camino::Utf8Path;
-use qubit_dependency_policy::{DirectRule, ProfileRules, plan_sync};
+use qubit_dependency_policy::DirectRule;
+use qubit_dependency_policy::ProfileRules;
+use qubit_dependency_policy::plan_sync;
 use semver::VersionReq;
 
 #[test]

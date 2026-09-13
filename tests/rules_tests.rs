@@ -1,7 +1,19 @@
-use camino::{Utf8Path, Utf8PathBuf};
-use qubit_dependency_policy::{
-    BaselineRef, Profile, ProjectConfig, ProjectSettings, evaluate, load_baseline,
-};
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
+use qubit_dependency_policy::BaselineRef;
+use qubit_dependency_policy::Profile;
+use qubit_dependency_policy::ProjectConfig;
+use qubit_dependency_policy::ProjectSettings;
+use qubit_dependency_policy::evaluate;
+use qubit_dependency_policy::load_baseline;
 
 fn config(project: &Utf8Path) -> ProjectConfig {
     ProjectConfig {
