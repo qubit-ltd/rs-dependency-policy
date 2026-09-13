@@ -23,6 +23,8 @@ cargo install --path .
 
 也可以在源码目录直接使用下文的 `cargo run --` 命令。随仓库提供的脚本需要 Bash、Cargo，以及用于交互选择版本的 `jq`。
 
+安装后暴露的是 `cargo dependency-policy` 这个 Cargo 子命令；不需要在每一个受治理仓库中安装该工具。
+
 ## 快速开始：创建 baseline
 
 如果需要为多个仓库目录建立一条可直接接入的第三方依赖基线，在本仓库运行交互式脚本：
@@ -95,21 +97,21 @@ profile = "library" # 已锁定依赖图的应用使用 "application"
 检查一个项目是否符合它选择的 baseline：
 
 ```bash
-cargo run -- --project /work/rs-example check
+cargo dependency-policy --project /work/rs-example check
 ```
 
 输出人类可读或 JSON 格式的报告：
 
 ```bash
-cargo run -- --project /work/rs-example report --format markdown
-cargo run -- --project /work/rs-example report --format json
+cargo dependency-policy --project /work/rs-example report --format markdown
+cargo dependency-policy --project /work/rs-example report --format json
 ```
 
 先生成安全的版本修改计划，确认后再执行：
 
 ```bash
-cargo run -- --project /work/rs-example sync --dry-run
-cargo run -- --project /work/rs-example sync
+cargo dependency-policy --project /work/rs-example sync --dry-run
+cargo dependency-policy --project /work/rs-example sync
 ```
 
 当前同步仅会修改根 `Cargo.toml` 的 `[dependencies]` 中纯字符串版本声明，例如 `serde = "1.0"`。inline table、别名依赖、target-specific 依赖、workspace 依赖及 `Cargo.lock` 更新都需要人工审核，不会被自动修改。

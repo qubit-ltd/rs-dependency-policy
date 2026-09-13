@@ -28,6 +28,9 @@ cargo install --path .
 You can also run the commands below from a checkout with `cargo run --`. The
 bundled scripts require Bash, Cargo, and `jq` for interactive selection.
 
+Installation exposes the Cargo subcommand `cargo dependency-policy`; the tool
+does not need to be installed in every governed repository.
+
 ## Quick start: create a baseline
 
 For several repository directories, generate a ready-to-adopt third-party baseline:
@@ -114,21 +117,21 @@ sources and local revision verification are not implemented yet, so local
 Check one project:
 
 ```bash
-cargo run -- --project /work/rs-example check
+cargo dependency-policy --project /work/rs-example check
 ```
 
 Render a report:
 
 ```bash
-cargo run -- --project /work/rs-example report --format markdown
-cargo run -- --project /work/rs-example report --format json
+cargo dependency-policy --project /work/rs-example report --format markdown
+cargo dependency-policy --project /work/rs-example report --format json
 ```
 
 Create a safe version-edit plan before applying it:
 
 ```bash
-cargo run -- --project /work/rs-example sync --dry-run
-cargo run -- --project /work/rs-example sync
+cargo dependency-policy --project /work/rs-example sync --dry-run
+cargo dependency-policy --project /work/rs-example sync
 ```
 
 Synchronization currently changes only plain string declarations in a root
