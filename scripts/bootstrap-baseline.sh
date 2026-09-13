@@ -63,6 +63,17 @@ for root in "${roots[@]}"; do
 done
 roots=("${expanded[@]}")
 
+valid_roots=()
+for root in "${roots[@]}"; do
+    if cargo metadata --manifest-path "${root}/Cargo.toml" --format-version 1 >/dev/null 2>&1; then
+        valid_roots+=("$root")
+    else
+        printf '跳过无法解析的项目：%s（请单独修复 Cargo 版本/path 依赖）\n' "$root" >&2
+    fi
+done
+roots=("${valid_roots[@]}")
+((${#roots[@]} > 0)) || { printf '没有可扫描的 Rust 项目。\n' >&2; exit 2; }
+
 mkdir -p "$(dirname -- "$output")"
 args=(run --quiet -- inventory)
 for root in "${roots[@]}"; do
