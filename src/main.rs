@@ -13,7 +13,14 @@ use qubit_dependency_policy::cli::Cli;
 
 /// Parses command-line arguments and executes the selected policy operation.
 fn main() {
-    let cli = Cli::parse();
+    let mut arguments = std::env::args_os().collect::<Vec<_>>();
+    if arguments
+        .get(1)
+        .is_some_and(|argument| argument == "dependency-policy")
+    {
+        arguments.remove(1);
+    }
+    let cli = Cli::parse_from(arguments);
     if let Err(error) = cli.execute() {
         eprintln!("{error}");
         std::process::exit(if matches!(error.code(), "DP001" | "DP101") {
