@@ -92,15 +92,15 @@ conflicts. It is evidence for review, not an automatically approved policy.
 
 ## Adopt a reviewed baseline
 
-After committing a reviewed release, add `.infra/dep/policy.toml` to each
-governed project. This release supports local `file://` policy sources:
+After committing a baseline release, add `.infra/dep/policy.toml` to each
+governed project. This is a pointer, not a copy of the baseline:
 
 ```toml
 format = 1
 
 [baseline]
 name = "organization-third-party"
-source = "file:///absolute/path/to/rs-dependency-policy"
+source = "https://github.com/qubit-ltd/rs-dependency-policy.git"
 revision = "0123456789abcdef0123456789abcdef01234567"
 release = "v2026.09.13"
 
@@ -108,9 +108,22 @@ release = "v2026.09.13"
 profile = "library" # use "application" for a locked application
 ```
 
-Use the full commit SHA of the reviewed release as `revision`. Remote Git
-sources and local revision verification are not implemented yet, so local
-`file://` sources are the supported execution path.
+Use the full commit SHA containing the selected baseline as `revision`. The
+checker fetches and detached-checks-out exactly that SHA. `file://` remains
+available for local development.
+
+In GitHub Actions, call the reusable Action after checkout:
+
+```yaml
+- uses: qubit-ltd/rs-dependency-policy/.github/actions/check@<tool-commit-sha>
+  with:
+    project: .
+    token: ${{ secrets.GITHUB_TOKEN }} # only needed for private baseline sources
+```
+
+The Action installs the checker from its own fixed source and reads the target
+project's pointer configuration. Target repositories neither install the tool
+nor copy `policy/baselines`.
 
 ## Check, report, and synchronize
 

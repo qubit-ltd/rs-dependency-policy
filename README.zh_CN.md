@@ -75,14 +75,14 @@ cargo run -- inventory \
 
 ## 接入已审核的 baseline
 
-在 policy 仓库提交经过审核的 release 后，为每个受治理项目添加 `.infra/dep/policy.toml`。当前版本支持本地 `file://` 形式的策略源：
+在 policy 仓库提交 baseline release 后，为每个受治理项目添加 `.infra/dep/policy.toml`。该文件是指针配置，不是 baseline 内容副本：
 
 ```toml
 format = 1
 
 [baseline]
 name = "organization-third-party"
-source = "file:///absolute/path/to/rs-dependency-policy"
+source = "https://github.com/qubit-ltd/rs-dependency-policy.git"
 revision = "0123456789abcdef0123456789abcdef01234567"
 release = "v2026.09.13"
 
@@ -90,7 +90,18 @@ release = "v2026.09.13"
 profile = "library" # 已锁定依赖图的应用使用 "application"
 ```
 
-`revision` 应填写审核该 release 时的完整 Git commit SHA。当前版本尚未实现远程 Git 策略源下载和本地策略源 revision 校验，因此本地 `file://` 是已支持的执行方式。
+`revision` 应填写包含该 baseline 的完整 Git commit SHA。检查器会 fetch 并 detached checkout 到这个精确 SHA；本地开发仍可使用 `file://`。
+
+GitHub Actions 在 checkout 后调用复用 Action：
+
+```yaml
+- uses: qubit-ltd/rs-dependency-policy/.github/actions/check@<工具提交SHA>
+  with:
+    project: .
+    token: ${{ secrets.GITHUB_TOKEN }} # 私有 baseline source 才需要
+```
+
+Action 从自身固定版本安装检查器，再读取目标项目的指针配置。目标仓库不需要安装工具，也不需要复制 `policy/baselines`。
 
 ## 检查、报告与安全同步
 

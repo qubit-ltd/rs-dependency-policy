@@ -1,0 +1,33 @@
+name: Rust dependency policy check
+description: Install cargo-dependency-policy from this action and check a Rust project
+inputs:
+  project:
+    description: Path to the Rust project to check
+    required: false
+    default: .
+  token:
+    description: Optional GitHub token used when fetching a private baseline repository
+    required: false
+  toolchain:
+    description: Rust toolchain used to build the policy checker
+    required: false
+    default: stable
+runs:
+  using: composite
+  steps:
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: ${{ inputs.toolchain }}
+    - name: Install dependency policy checker
+      shell: bash
+      env:
+        CARGO_NET_GIT_FETCH_WITH_CLI: true
+      run: cargo install --path "${{ github.action_path }}" --locked --force
+    - name: Check dependency policy
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        GITHUB_TOKEN: ${{ inputs.token }}
+        CARGO_NET_GIT_FETCH_WITH_CLI: true
+      run: cargo dependency-policy --project "${{ inputs.project }}" check
