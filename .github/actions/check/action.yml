@@ -23,7 +23,8 @@ runs:
       shell: bash
       env:
         CARGO_NET_GIT_FETCH_WITH_CLI: true
-      run: cargo install --path "${{ github.action_path }}" --locked --force
+      # The composite action lives below the Cargo package root.
+      run: cargo install --path "${{ github.action_path }}/../.." --locked --force
     - name: Check dependency policy
       shell: bash
       env:
